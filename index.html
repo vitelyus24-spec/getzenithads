@@ -66,6 +66,16 @@
       alert("Error en login");
     }
   });
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+onAuthStateChanged(window.firebaseAuth, (user) => {
+  if (user) {
+    console.log("Usuario detectado:", user.email);
+    const btn = document.getElementById("loginGoogle");
+    if (btn) btn.style.display = "none";
+  }
+});
+
 </script>
 
   <!-- HEADER -->
@@ -122,5 +132,6 @@ Introduce aquí el brief de tu campaña (función disponible próximamente).
 
 </body>
 </html>
+
 
 
