@@ -85,7 +85,6 @@ const logoutBtn = document.getElementById("logoutBtn");
 if (logoutBtn) {
   logoutBtn.addEventListener("click", async () => {
     await signOut(window.firebaseAuth);
-    window.location.href = "/";
   });
 }
   
@@ -154,6 +153,7 @@ Introduce aquí el brief de tu campaña (función disponible próximamente).
 
 </body>
 </html>
+
 
 
 
