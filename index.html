@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>ZenithAds — Infraestructura Privada</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -14,126 +14,163 @@
   <style>
     body {
       font-family: 'Plus Jakarta Sans', sans-serif;
-      background: black;
-      color: white;
-      overflow-x: hidden;
+      background: #05060a;
+      color: #ffffff;
     }
+
+    /* VIDEO HERO */
     .video-bg {
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
+      inset: 0;
       z-index: -1;
       overflow: hidden;
     }
-    .video-bg iframe {
+
+    .video-bg video {
       width: 100%;
       height: 100%;
-      pointer-events: none;
-    }
-    .overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(
-        rgba(0,0,0,0.75),
-        rgba(0,0,0,0.9)
-      );
-      z-index: 0;
+      object-fit: cover;
+      filter: brightness(0.35);
     }
   </style>
+
+  <!-- FIREBASE -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import {
+      getAuth,
+      GoogleAuthProvider,
+      signInWithPopup,
+      signOut,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAK0qbvmsTCdfs3Cdo8bpBHQLDb9rl4-BY",
+      authDomain: "zenithads-core.firebaseapp.com",
+      projectId: "zenithads-core",
+      storageBucket: "zenithads-core.appspot.com",
+      messagingSenderId: "594519932448",
+      appId: "1:594519932448:web:5908a27fb669f45db2c645"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
+
+    window.addEventListener("DOMContentLoaded", () => {
+      const loginBtn = document.getElementById("loginGoogle");
+      const logoutBtn = document.getElementById("logoutBtn");
+      const privatePanel = document.getElementById("privatePanel");
+      const publicHero = document.getElementById("publicHero");
+
+      loginBtn.onclick = async () => {
+        await signInWithPopup(auth, provider);
+      };
+
+      logoutBtn.onclick = async () => {
+        await signOut(auth);
+      };
+
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+          publicHero.classList.add("hidden");
+          privatePanel.classList.remove("hidden");
+        } else {
+          publicHero.classList.remove("hidden");
+          privatePanel.classList.add("hidden");
+        }
+      });
+    });
+  </script>
 </head>
 
-<body>
+<body class="min-h-screen flex flex-col">
 
-<!-- VIDEO CINEMÁTICO GARANTIZADO -->
-<div class="video-bg">
-  <iframe
-    src="https://www.youtube.com/embed/Scxs7L0vhZ4?autoplay=1&mute=1&loop=1&playlist=Scxs7L0vhZ4&controls=0&showinfo=0&modestbranding=1"
-    frameborder="0"
-    allow="autoplay; fullscreen">
-  </iframe>
-</div>
-
-<div class="overlay"></div>
-
-<!-- CONTENIDO -->
-<div class="relative z-10 min-h-screen flex flex-col justify-between">
+  <!-- VIDEO -->
+  <div class="video-bg">
+    <video autoplay muted loop playsinline>
+      <source src="https://cdn.coverr.co/videos/coverr-working-in-a-modern-office-1578/1080p.mp4" type="video/mp4">
+    </video>
+  </div>
 
   <!-- HEADER -->
-  <header class="flex justify-between items-center px-10 py-6">
+  <header class="px-10 py-6 flex justify-between items-center">
     <div class="text-2xl font-extrabold">
       Zenith<span class="text-blue-500">Ads</span>
     </div>
-    <button
-      id="loginGoogle"
-      class="px-5 py-2 bg-blue-600 hover:bg-blue-700 rounded-full font-semibold"
-    >
-      Iniciar sesión con Google
+    <button id="logoutBtn" class="hidden px-4 py-2 bg-red-600 hover:bg-red-700 rounded">
+      Cerrar sesión
     </button>
   </header>
 
-  <!-- HERO -->
-  <main class="flex-1 flex items-center px-10">
-    <div class="max-w-2xl">
-      <h1 class="text-5xl font-extrabold leading-tight mb-6">
-        No es una herramienta.<br/>
+  <!-- HERO PÚBLICO -->
+  <main id="publicHero" class="flex-1 flex items-center justify-center text-center px-6">
+    <div class="max-w-4xl">
+      <h1 class="text-5xl md:text-6xl font-extrabold mb-6">
+        No es una herramienta.<br>
         <span class="text-blue-500">Es una infraestructura.</span>
       </h1>
 
-      <p class="text-lg text-slate-300 mb-8">
-        Plataforma privada de generación y validación de contenido publicitario.<br/>
-        Acceso limitado · Fase cerrada · Invitación requerida.
+      <p class="text-xl text-slate-300 mb-8">
+        Plataforma privada de generación y validación de contenido publicitario.<br>
+        Acceso limitado. Fase cerrada. Invitación requerida.
       </p>
 
-      <div class="flex gap-4">
-        <button class="px-6 py-3 rounded-full bg-white text-black font-extrabold cursor-not-allowed">
-          Acceso prioritario próximamente
+      <div class="flex flex-col md:flex-row gap-4 justify-center mb-6">
+        <button id="loginGoogle"
+          class="px-8 py-4 rounded-full bg-blue-600 hover:bg-blue-700 font-bold text-lg">
+          Iniciar sesión con Google
         </button>
-        <span class="text-sm text-slate-400 self-center italic">
-          Si estás aquí, probablemente no es casualidad.
-        </span>
+
+        <button
+          class="px-8 py-4 rounded-full bg-white/20 text-white/80 cursor-not-allowed">
+          Acceso prioritario (próximamente)
+        </button>
+      </div>
+
+      <p class="text-sm italic text-slate-400">
+        Si estás aquí, probablemente no es casualidad.
+      </p>
+    </div>
+  </main>
+
+  <!-- PANEL PRIVADO -->
+  <main id="privatePanel" class="hidden flex-1 flex items-center justify-center px-6">
+    <div class="max-w-2xl w-full bg-white/10 border border-white/20 rounded-3xl p-10">
+      <h2 class="text-3xl font-extrabold mb-4">
+        Infraestructura de Contenido
+      </h2>
+
+      <p class="text-slate-300 mb-6">
+        Acceso concedido. Plataforma en fase privada de validación.<br>
+        La activación completa se habilita únicamente por invitación interna.
+      </p>
+
+      <textarea
+        disabled
+        class="w-full h-32 bg-black/40 border border-white/20 rounded-xl p-4 mb-6 text-slate-400"
+      >Introduce aquí el brief de tu campaña (disponible próximamente)</textarea>
+
+      <button
+        disabled
+        class="w-full py-4 rounded-full bg-white/30 text-black/60 font-bold cursor-not-allowed mb-4">
+        Infraestructura en fase privada
+      </button>
+
+      <!-- PREMONETIZACIÓN -->
+      <div class="mt-6 p-4 border border-yellow-400/40 rounded-xl bg-yellow-400/10">
+        <p class="text-yellow-300 font-semibold">
+          Acceso prioritario disponible tras validación · Modelo premium en preparación
+        </p>
       </div>
     </div>
   </main>
 
   <!-- FOOTER -->
-  <footer class="px-10 py-6 text-xs text-slate-400 italic">
+  <footer class="px-10 py-6 text-xs text-slate-400 text-center">
     © 2026 ZenithAds — Operado desde Asturias, España
   </footer>
-
-</div>
-
-<!-- FIREBASE -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getAuth, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyAK0qbvmsTCdfs3Cdo8bpBHQLDb9rl4-BY",
-    authDomain: "zenithads-core.firebaseapp.com",
-    projectId: "zenithads-core",
-    storageBucket: "zenithads-core.firebasestorage.app",
-    messagingSenderId: "594519932448",
-    appId: "1:594519932448:web:5908a27fb669f45db2c645"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const provider = new GoogleAuthProvider();
-
-  document.getElementById("loginGoogle").onclick = async () => {
-    try {
-      await signInWithPopup(auth, provider);
-      alert("Acceso concedido");
-    } catch {
-      alert("Error de autenticación");
-    }
-  };
-</script>
 
 </body>
 </html>
