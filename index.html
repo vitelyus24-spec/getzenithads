@@ -18,6 +18,29 @@
       color: #ffffff;
     }
   </style>
+<!-- cosas que ya tengas arriba -->
+
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getAuth } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAK0qbvmsTCdfs3Cdo8bpBHQLDb9rl4-BY",
+    authDomain: "zenithads-core.firebaseapp.com",
+    projectId: "zenithads-core",
+    storageBucket: "zenithads-core.firebasestorage.app",
+    messagingSenderId: "594519932448",
+    appId: "1:594519932448:web:5908a27fb669f45db2c645"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  window.firebaseAuth = auth;
+</script>
+
+</head>
+
 </head>
 
 <body class="min-h-screen flex flex-col">
@@ -76,3 +99,4 @@ Introduce aquí el brief de tu campaña (función disponible próximamente).
 
 </body>
 </html>
+
