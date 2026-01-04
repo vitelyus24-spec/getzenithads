@@ -69,18 +69,22 @@
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 onAuthStateChanged(window.firebaseAuth, (user) => {
-if (!user) {
-// window.location.href = "/";
-} else {
-  console.log("Usuario detectado:", user.email);
-  const btn = document.getElementById("loginGoogle");
-  if (btn) btn.style.display = "none";
-}
+  const loginBtn = document.getElementById("loginGoogle");
+  const logoutBtn = document.getElementById("logoutBtn");
+
+  if (user) {
+    if (loginBtn) loginBtn.style.display = "none";
+    if (logoutBtn) logoutBtn.style.display = "inline-block";
+    console.log("Usuario detectado:", user.email);
+  } else {
+  if (loginBtn) loginBtn.style.display = "";
+
+    if (logoutBtn) logoutBtn.style.display = "none";
+    console.log("Usuario no autenticado");
+  }
 
 });
 import { signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-
-const logoutBtn = document.getElementById("logoutBtn");
 
 if (logoutBtn) {
   logoutBtn.addEventListener("click", async () => {
@@ -153,6 +157,7 @@ Introduce aquí el brief de tu campaña (función disponible próximamente).
 
 </body>
 </html>
+
 
 
 
