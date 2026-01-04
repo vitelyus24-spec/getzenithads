@@ -14,24 +14,29 @@
   <style>
     body {
       font-family: 'Plus Jakarta Sans', sans-serif;
-      background: radial-gradient(circle at top, #0f172a, #020617);
-      color: white;
+      background: #050505;
+      color: #ffffff;
+      overflow-x: hidden;
     }
 
-    .fade-in {
-      animation: fadeIn 1.2s ease-out forwards;
+    .fade-up {
+      animation: fadeUp 1.1s ease-out forwards;
     }
 
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
+    .fade-delay-1 { animation-delay: .2s; }
+    .fade-delay-2 { animation-delay: .4s; }
+    .fade-delay-3 { animation-delay: .6s; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(30px); }
       to { opacity: 1; transform: translateY(0); }
     }
   </style>
 
-  <!-- Firebase base -->
+  <!-- Firebase -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getAuth } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAK0qbvmsTCdfs3Cdo8bpBHQLDb9rl4-BY",
@@ -44,119 +49,122 @@
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
-    window.firebaseAuth = auth;
+    const provider = new GoogleAuthProvider();
+
+    window.addEventListener("DOMContentLoaded", () => {
+      const loginBtn = document.getElementById("loginGoogle");
+      const logoutBtn = document.getElementById("logoutBtn");
+      const publicView = document.getElementById("publicView");
+      const privateView = document.getElementById("privateView");
+
+      loginBtn?.addEventListener("click", async () => {
+        await signInWithPopup(auth, provider);
+      });
+
+      logoutBtn?.addEventListener("click", async () => {
+        await signOut(auth);
+      });
+
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+          publicView.classList.add("hidden");
+          privateView.classList.remove("hidden");
+        } else {
+          publicView.classList.remove("hidden");
+          privateView.classList.add("hidden");
+        }
+      });
+    });
   </script>
 </head>
 
-<body class="min-h-screen flex flex-col">
+<body>
 
-<!-- HERO PÚBLICO -->
-<section id="publicHero" class="flex-1 flex items-center justify-center px-6 text-center fade-in">
-  <div class="max-w-3xl">
-    <h1 class="text-4xl md:text-6xl font-extrabold mb-6 leading-tight">
+<!-- ================= PUBLIC VIEW ================= -->
+<section id="publicView" class="relative min-h-screen flex items-center justify-center">
+
+  <!-- VIDEO BACKGROUND -->
+  <video autoplay muted loop playsinline
+    class="absolute inset-0 w-full h-full object-cover opacity-30">
+    <source src="https://cdn.coverr.co/videos/coverr-modern-office-building-9422/1080p.mp4" type="video/mp4">
+  </video>
+
+  <!-- OVERLAY -->
+  <div class="absolute inset-0 bg-gradient-to-b from-black/80 via-black/70 to-black"></div>
+
+  <!-- CONTENT -->
+  <div class="relative z-10 max-w-4xl px-6 text-center">
+
+    <h1 class="text-4xl md:text-6xl font-extrabold leading-tight fade-up">
       No es una herramienta.<br>
       <span class="text-blue-400">Es una infraestructura.</span>
     </h1>
 
-    <p class="text-slate-300 text-lg md:text-xl mb-8">
+    <p class="mt-6 text-lg text-slate-300 fade-up fade-delay-1">
       Plataforma privada de generación y validación de contenido publicitario.<br>
       Acceso limitado. Fase cerrada. Invitación requerida.
     </p>
 
-    <div class="flex flex-col md:flex-row gap-4 justify-center mb-6">
+    <div class="mt-10 flex flex-col md:flex-row gap-4 justify-center fade-up fade-delay-2">
       <button id="loginGoogle"
-        class="px-6 py-3 rounded-full bg-blue-500 hover:bg-blue-600 font-semibold text-white transition">
+        class="px-8 py-4 rounded-full bg-blue-500 hover:bg-blue-600 text-black font-extrabold transition">
         Iniciar sesión con Google
       </button>
 
       <button
-        class="px-6 py-3 rounded-full bg-white/10 border border-white/20 text-white/70 cursor-not-allowed">
+        class="px-8 py-4 rounded-full bg-white/20 text-white cursor-not-allowed">
         Acceso prioritario (próximamente)
       </button>
     </div>
 
-    <p class="text-xs text-slate-400 italic">
+    <p class="mt-6 text-sm text-slate-400 fade-up fade-delay-3">
       Si estás aquí, probablemente no es casualidad.
     </p>
   </div>
 </section>
 
-<!-- PANEL PRIVADO -->
-<section id="privatePanel" class="hidden flex-1 flex items-center justify-center px-6">
-  <div class="max-w-2xl w-full bg-white/5 border border-white/10 rounded-3xl p-10 text-left fade-in">
+<!-- ================= PRIVATE VIEW ================= -->
+<section id="privateView" class="hidden min-h-screen flex flex-col">
 
-    <div class="flex justify-between items-center mb-6">
-      <h2 class="text-2xl font-extrabold">Infraestructura de Contenido</h2>
-      <button id="logoutBtn"
-        class="px-4 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded">
-        Cerrar sesión
-      </button>
+  <header class="px-10 py-6 border-b border-white/10 flex justify-between items-center">
+    <div class="text-2xl font-extrabold">
+      Zenith<span class="text-blue-500">Ads</span>
     </div>
-
-    <p class="text-slate-400 italic mb-6">
-      ZenithAds se encuentra en fase privada de validación.
-      El acceso completo se habilita únicamente tras activación interna.
-    </p>
-
-    <textarea disabled
-      class="w-full h-36 bg-black/40 border border-white/10 rounded-2xl p-5 text-slate-500 italic resize-none mb-6">
-Introduce aquí el brief de tu campaña (disponible próximamente).
-    </textarea>
-
-    <button disabled
-      class="w-full py-4 rounded-full bg-white/20 text-black/60 font-bold cursor-not-allowed">
-      Infraestructura en fase privada
+    <button id="logoutBtn"
+      class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded text-sm">
+      Cerrar sesión
     </button>
+  </header>
 
-    <p class="text-xs text-slate-500 italic mt-4">
-      Acceso mediante invitación directa.
-    </p>
-  </div>
+  <main class="flex-1 flex items-center justify-center px-6">
+    <div class="max-w-xl w-full bg-white/5 border border-white/10 rounded-3xl p-10 text-left">
+      <h2 class="text-3xl font-extrabold mb-4">Infraestructura de Contenido</h2>
+
+      <p class="text-slate-400 italic mb-6">
+        ZenithAds se encuentra en fase privada de validación.
+        El acceso completo se habilita únicamente tras activación interna.
+      </p>
+
+      <textarea disabled
+        class="w-full h-36 bg-black/40 border border-white/10 rounded-2xl p-6 text-slate-500 italic resize-none cursor-not-allowed mb-6">
+Introduce aquí el brief de tu campaña (disponible próximamente).
+      </textarea>
+
+      <button disabled
+        class="w-full py-4 rounded-full bg-white/30 text-black/60 font-extrabold">
+        Infraestructura en fase privada
+      </button>
+
+      <p class="text-xs text-slate-500 italic mt-4">
+        Acceso mediante invitación directa.
+      </p>
+    </div>
+  </main>
+
+  <footer class="px-10 py-6 border-t border-white/10 text-xs text-slate-500 italic text-center">
+    © 2026 ZenithAds — Operado desde Asturias, España
+  </footer>
 </section>
-
-<!-- FOOTER -->
-<footer class="text-center text-xs text-slate-500 italic py-6">
-  © 2026 ZenithAds — Operado desde Asturias, España
-</footer>
-
-<!-- AUTH LOGIC -->
-<script type="module">
-  import {
-    GoogleAuthProvider,
-    signInWithPopup,
-    onAuthStateChanged,
-    signOut
-  } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-
-  const provider = new GoogleAuthProvider();
-
-  const loginBtn = document.getElementById("loginGoogle");
-  const logoutBtn = document.getElementById("logoutBtn");
-  const publicHero = document.getElementById("publicHero");
-  const privatePanel = document.getElementById("privatePanel");
-
-  loginBtn?.addEventListener("click", async () => {
-    try {
-      await signInWithPopup(window.firebaseAuth, provider);
-    } catch (e) {
-      alert("Error en el inicio de sesión");
-    }
-  });
-
-  logoutBtn?.addEventListener("click", async () => {
-    await signOut(window.firebaseAuth);
-  });
-
-  onAuthStateChanged(window.firebaseAuth, (user) => {
-    if (user) {
-      publicHero.classList.add("hidden");
-      privatePanel.classList.remove("hidden");
-    } else {
-      publicHero.classList.remove("hidden");
-      privatePanel.classList.add("hidden");
-    }
-  });
-</script>
 
 </body>
 </html>
