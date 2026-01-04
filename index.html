@@ -2,8 +2,8 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>ZenithAds — Plataforma privada</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ZenithAds — Infraestructura privada</title>
 
   <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -14,12 +14,12 @@
   <style>
     body {
       font-family: 'Plus Jakarta Sans', sans-serif;
-      background: #0a0a0a;
+      background: radial-gradient(circle at top, #0f172a, #020617);
       color: white;
     }
 
     .fade-in {
-      animation: fadeIn 1.2s ease forwards;
+      animation: fadeIn 1.2s ease-out forwards;
     }
 
     @keyframes fadeIn {
@@ -28,143 +28,135 @@
     }
   </style>
 
-  <!-- Firebase -->
+  <!-- Firebase base -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } 
-    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getAuth } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAK0qbvmsTCdfs3Cdo8bpBHQLDb9rl4-BY",
       authDomain: "zenithads-core.firebaseapp.com",
       projectId: "zenithads-core",
-      storageBucket: "zenithads-core.appspot.com",
+      storageBucket: "zenithads-core.firebasestorage.app",
       messagingSenderId: "594519932448",
       appId: "1:594519932448:web:5908a27fb669f45db2c645"
     };
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
-    const provider = new GoogleAuthProvider();
-
-    window.addEventListener("DOMContentLoaded", () => {
-      const loginBtn = document.getElementById("loginGoogle");
-      const logoutBtn = document.getElementById("logoutBtn");
-      const privateArea = document.getElementById("privateArea");
-
-      loginBtn.addEventListener("click", async () => {
-        await signInWithPopup(auth, provider);
-      });
-
-      logoutBtn.addEventListener("click", async () => {
-        await signOut(auth);
-      });
-
-      onAuthStateChanged(auth, (user) => {
-        if (user) {
-          loginBtn.classList.add("hidden");
-          logoutBtn.classList.remove("hidden");
-          privateArea.classList.remove("hidden");
-        } else {
-          loginBtn.classList.remove("hidden");
-          logoutBtn.classList.add("hidden");
-          privateArea.classList.add("hidden");
-        }
-      });
-    });
+    window.firebaseAuth = auth;
   </script>
 </head>
 
 <body class="min-h-screen flex flex-col">
 
-<!-- HERO -->
-<section class="relative h-screen flex items-center justify-center overflow-hidden">
-
-  <!-- VIDEO -->
-  <video autoplay muted loop playsinline
-    class="absolute inset-0 w-full h-full object-cover opacity-40">
-    <source src="https://cdn.coverr.co/videos/coverr-working-at-night-in-the-office-1578/1080p.mp4" type="video/mp4">
-  </video>
-
-  <!-- OVERLAY -->
-  <div class="absolute inset-0 bg-black/60"></div>
-
-  <!-- CONTENT -->
-  <div class="relative z-10 max-w-4xl text-center px-6 fade-in">
-    <h1 class="text-4xl md:text-6xl font-extrabold mb-6">
+<!-- HERO PÚBLICO -->
+<section id="publicHero" class="flex-1 flex items-center justify-center px-6 text-center fade-in">
+  <div class="max-w-3xl">
+    <h1 class="text-4xl md:text-6xl font-extrabold mb-6 leading-tight">
       No es una herramienta.<br>
-      <span class="text-blue-500">Es una infraestructura.</span>
+      <span class="text-blue-400">Es una infraestructura.</span>
     </h1>
 
-    <p class="text-lg md:text-xl text-slate-300 mb-8">
+    <p class="text-slate-300 text-lg md:text-xl mb-8">
       Plataforma privada de generación y validación de contenido publicitario.<br>
       Acceso limitado. Fase cerrada. Invitación requerida.
     </p>
 
-    <div class="flex flex-col md:flex-row gap-4 justify-center">
+    <div class="flex flex-col md:flex-row gap-4 justify-center mb-6">
       <button id="loginGoogle"
-        class="px-8 py-4 bg-blue-600 hover:bg-blue-700 rounded-full text-lg font-bold">
+        class="px-6 py-3 rounded-full bg-blue-500 hover:bg-blue-600 font-semibold text-white transition">
         Iniciar sesión con Google
       </button>
 
       <button
-        disabled
-        class="px-8 py-4 bg-white/20 rounded-full text-lg font-bold cursor-not-allowed">
+        class="px-6 py-3 rounded-full bg-white/10 border border-white/20 text-white/70 cursor-not-allowed">
         Acceso prioritario (próximamente)
       </button>
     </div>
 
-    <p class="text-sm text-slate-400 italic mt-6">
+    <p class="text-xs text-slate-400 italic">
       Si estás aquí, probablemente no es casualidad.
     </p>
   </div>
 </section>
 
-<!-- HEADER -->
-<header class="px-10 py-6 border-b border-white/10 flex justify-between items-center">
-  <div class="text-2xl font-extrabold">
-    Zenith<span class="text-blue-500">Ads</span>
-  </div>
+<!-- PANEL PRIVADO -->
+<section id="privatePanel" class="hidden flex-1 flex items-center justify-center px-6">
+  <div class="max-w-2xl w-full bg-white/5 border border-white/10 rounded-3xl p-10 text-left fade-in">
 
-  <button id="logoutBtn"
-    class="hidden px-4 py-2 bg-red-600 hover:bg-red-700 rounded">
-    Cerrar sesión
-  </button>
-</header>
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-extrabold">Infraestructura de Contenido</h2>
+      <button id="logoutBtn"
+        class="px-4 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded">
+        Cerrar sesión
+      </button>
+    </div>
 
-<!-- PRIVATE AREA -->
-<main id="privateArea" class="hidden flex-1 flex items-center justify-center px-6">
-  <div class="max-w-2xl w-full bg-white/5 border border-white/10 rounded-3xl p-10 fade-in">
-
-    <h2 class="text-3xl font-extrabold mb-4">
-      Infraestructura de Contenido
-    </h2>
-
-    <p class="text-slate-400 italic mb-8">
+    <p class="text-slate-400 italic mb-6">
       ZenithAds se encuentra en fase privada de validación.
       El acceso completo se habilita únicamente tras activación interna.
     </p>
 
     <textarea disabled
-      class="w-full h-40 bg-black/40 border border-white/10 rounded-2xl p-6 text-slate-500 italic resize-none mb-6">
+      class="w-full h-36 bg-black/40 border border-white/10 rounded-2xl p-5 text-slate-500 italic resize-none mb-6">
 Introduce aquí el brief de tu campaña (disponible próximamente).
     </textarea>
 
     <button disabled
-      class="w-full py-5 rounded-full bg-white/30 text-black/60 font-extrabold cursor-not-allowed">
+      class="w-full py-4 rounded-full bg-white/20 text-black/60 font-bold cursor-not-allowed">
       Infraestructura en fase privada
     </button>
 
-    <p class="text-xs text-slate-500 italic mt-6">
+    <p class="text-xs text-slate-500 italic mt-4">
       Acceso mediante invitación directa.
     </p>
   </div>
-</main>
+</section>
 
 <!-- FOOTER -->
-<footer class="px-10 py-6 border-t border-white/10 text-xs text-slate-500 italic text-center">
+<footer class="text-center text-xs text-slate-500 italic py-6">
   © 2026 ZenithAds — Operado desde Asturias, España
 </footer>
+
+<!-- AUTH LOGIC -->
+<script type="module">
+  import {
+    GoogleAuthProvider,
+    signInWithPopup,
+    onAuthStateChanged,
+    signOut
+  } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+  const provider = new GoogleAuthProvider();
+
+  const loginBtn = document.getElementById("loginGoogle");
+  const logoutBtn = document.getElementById("logoutBtn");
+  const publicHero = document.getElementById("publicHero");
+  const privatePanel = document.getElementById("privatePanel");
+
+  loginBtn?.addEventListener("click", async () => {
+    try {
+      await signInWithPopup(window.firebaseAuth, provider);
+    } catch (e) {
+      alert("Error en el inicio de sesión");
+    }
+  });
+
+  logoutBtn?.addEventListener("click", async () => {
+    await signOut(window.firebaseAuth);
+  });
+
+  onAuthStateChanged(window.firebaseAuth, (user) => {
+    if (user) {
+      publicHero.classList.add("hidden");
+      privatePanel.classList.remove("hidden");
+    } else {
+      publicHero.classList.remove("hidden");
+      privatePanel.classList.add("hidden");
+    }
+  });
+</script>
 
 </body>
 </html>
