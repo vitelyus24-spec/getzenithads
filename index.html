@@ -70,7 +70,7 @@ import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/fi
 
 onAuthStateChanged(window.firebaseAuth, (user) => {
 if (!user) {
-  window.location.href = "/";
+// window.location.href = "/";
 } else {
   console.log("Usuario detectado:", user.email);
   const btn = document.getElementById("loginGoogle");
@@ -153,6 +153,7 @@ Introduce aquí el brief de tu campaña (función disponible próximamente).
 
 </body>
 </html>
+
 
 
 
