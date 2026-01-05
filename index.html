@@ -23,7 +23,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getAuth } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-    import { getFirestore } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAK0qbvmsTCdfs3Cdo8bpBHQLDb9rl4-BY",
@@ -35,26 +35,22 @@
     };
 
     const app = initializeApp(firebaseConfig);
-
-    window.firebaseAuth = getAuth(app);
-    window.firestoreDB = getFirestore(app);
+    window.auth = getAuth(app);
+    window.db = getFirestore(app);
   </script>
 </head>
 
 <body class="min-h-screen flex flex-col">
 
-<!-- ================= PUBLIC VIEW ================= -->
+<!-- PUBLIC -->
 <section id="publicView" class="flex-1 flex items-center justify-center px-6"
-  style="
-    background:
-    linear-gradient(rgba(0,0,0,.75), rgba(0,0,0,.85)),
-    url('https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=2000&q=80');
-    background-size: cover;
-    background-position: center;
-  "
->
+style="background:
+linear-gradient(rgba(0,0,0,.75), rgba(0,0,0,.85)),
+url('https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=2000&q=80');
+background-size: cover;
+background-position: center;">
   <div class="max-w-3xl text-center">
-    <h1 class="text-4xl md:text-6xl font-extrabold mb-6">
+    <h1 class="text-5xl md:text-6xl font-extrabold mb-6">
       No es una herramienta.<br>
       <span class="text-blue-500">Es una infraestructura.</span>
     </h1>
@@ -71,7 +67,7 @@
       </button>
 
       <div class="px-8 py-4 rounded-full bg-yellow-600/20 border border-yellow-500 text-yellow-300 font-semibold">
-        Acceso prioritario (próximamente)
+        Acceso prioritario próximamente
       </div>
     </div>
 
@@ -81,9 +77,9 @@
   </div>
 </section>
 
-<!-- ================= PRIVATE VIEW ================= -->
+<!-- PRIVATE -->
 <section id="privateView" class="hidden flex-1 flex items-center justify-center px-6">
-  <div class="max-w-2xl w-full bg-white/5 border border-white/10 rounded-3xl p-10 text-left">
+  <div class="max-w-3xl w-full bg-white/5 border border-white/10 rounded-3xl p-10">
 
     <div class="flex justify-between items-center mb-6">
       <h2 class="text-2xl font-extrabold">Infraestructura de Contenido</h2>
@@ -93,9 +89,14 @@
       </button>
     </div>
 
+    <div id="roleBadge"
+      class="inline-block mb-6 px-4 py-2 rounded-full bg-blue-600/20 border border-blue-500 text-blue-300 font-semibold">
+      Rol: —
+    </div>
+
     <p class="text-slate-400 italic mb-6">
-      Acceso concedido. Plataforma en fase privada de validación.<br>
-      La activación completa se habilita únicamente por invitación interna.
+      Plataforma en fase privada de validación.<br>
+      El acceso completo se habilita únicamente por invitación interna.
     </p>
 
     <textarea disabled
@@ -103,13 +104,18 @@
 Introduce aquí el brief de tu campaña (disponible próximamente).
     </textarea>
 
-    <button disabled
-      class="w-full py-4 rounded-full bg-white/30 text-black/60 font-bold cursor-not-allowed mb-4">
-      Infraestructura en fase privada
-    </button>
-
-    <div class="mt-4 p-4 rounded-xl border border-yellow-500 bg-yellow-600/10 text-yellow-300 text-sm font-semibold">
-      Acceso prioritario disponible tras validación · Modelo premium en preparación
+    <!-- PLANES (PREVIEW) -->
+    <div id="plansSection" class="mt-8 hidden">
+      <h3 class="text-xl font-bold mb-4">Planes (preparados)</h3>
+      <div class="grid md:grid-cols-4 gap-4 text-center">
+        <div class="p-4 border border-white/10 rounded-xl">Starter<br>19 €</div>
+        <div class="p-4 border border-white/10 rounded-xl">Business<br>49 €</div>
+        <div class="p-4 border border-white/10 rounded-xl">Pro<br>149 €</div>
+        <div class="p-4 border border-white/10 rounded-xl">Global<br>299 €</div>
+      </div>
+      <p class="text-xs text-slate-400 italic mt-4">
+        Monetización preparada · Stripe no activado
+      </p>
     </div>
   </div>
 </section>
@@ -118,7 +124,6 @@ Introduce aquí el brief de tu campaña (disponible próximamente).
   © 2026 ZenithAds — Operado desde Asturias, España
 </footer>
 
-<!-- ================= LOGIC ================= -->
 <script type="module">
   import {
     GoogleAuthProvider,
@@ -126,55 +131,49 @@ Introduce aquí el brief de tu campaña (disponible próximamente).
     onAuthStateChanged,
     signOut
   } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  import { doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-  import {
-    doc,
-    setDoc,
-    serverTimestamp
-  } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
+  const ADMIN_EMAILS = ["vitelyus24@gmail.com"];
   const provider = new GoogleAuthProvider();
 
   const loginBtn = document.getElementById("loginGoogle");
   const logoutBtn = document.getElementById("logoutBtn");
   const publicView = document.getElementById("publicView");
   const privateView = document.getElementById("privateView");
+  const roleBadge = document.getElementById("roleBadge");
+  const plansSection = document.getElementById("plansSection");
 
-  loginBtn.addEventListener("click", async () => {
-    try {
-      await signInWithPopup(window.firebaseAuth, provider);
-    } catch (e) {
-      alert("Error en login");
-    }
-  });
+  loginBtn.onclick = async () => {
+    await signInWithPopup(window.auth, provider);
+  };
 
-  onAuthStateChanged(window.firebaseAuth, async (user) => {
-    if (user) {
-      publicView.classList.add("hidden");
-      privateView.classList.remove("hidden");
+  logoutBtn.onclick = async () => {
+    await signOut(window.auth);
+  };
 
-      // ====== FIRESTORE USER UPSERT ======
-      try {
-        const ref = doc(window.firestoreDB, "Usuarios", user.uid);
-        await setDoc(ref, {
-          uid: user.uid,
-          email: user.email,
-          estado: "validacion",
-          plan: "free",
-          createdAt: serverTimestamp()
-        }, { merge: true });
-      } catch (e) {
-        console.error("Firestore error:", e);
-      }
-
-    } else {
+  onAuthStateChanged(window.auth, async (user) => {
+    if (!user) {
       publicView.classList.remove("hidden");
       privateView.classList.add("hidden");
+      return;
     }
-  });
 
-  logoutBtn.addEventListener("click", async () => {
-    await signOut(window.firebaseAuth);
+    publicView.classList.add("hidden");
+    privateView.classList.remove("hidden");
+
+    const role = ADMIN_EMAILS.includes(user.email) ? "admin" : "free";
+    roleBadge.innerText = "Rol: " + role.toUpperCase();
+
+    if (role === "admin") {
+      plansSection.classList.remove("hidden");
+    }
+
+    await setDoc(doc(window.db, "users", user.uid), {
+      email: user.email,
+      role,
+      plan: role === "admin" ? "global" : "free",
+      updatedAt: new Date()
+    }, { merge: true });
   });
 </script>
 
