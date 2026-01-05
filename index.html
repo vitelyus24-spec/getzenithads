@@ -19,7 +19,7 @@
     }
   </style>
 
-  <!-- Firebase Core -->
+  <!-- Firebase -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getAuth } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
@@ -41,13 +41,15 @@
 
 <body class="min-h-screen flex flex-col">
 
-<!-- ================= PUBLIC VIEW ================= -->
+<!-- HERO / PUBLIC -->
 <section id="publicView" class="flex-1 flex items-center justify-center px-6"
-  style="background:
-    linear-gradient(rgba(0,0,0,.75), rgba(0,0,0,.9)),
-    url('https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=2000&q=80');
+  style="
+    background:
+      linear-gradient(rgba(0,0,0,.78), rgba(0,0,0,.88)),
+      url('https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=2000&q=80');
     background-size: cover;
-    background-position: center;"
+    background-position: center;
+  "
 >
   <div class="max-w-4xl text-center">
     <h1 class="text-4xl md:text-6xl font-extrabold mb-6">
@@ -55,19 +57,23 @@
       <span class="text-blue-500">Es una infraestructura.</span>
     </h1>
 
-    <p class="text-lg text-slate-300 mb-10">
+    <p class="text-lg md:text-xl text-slate-300 mb-8">
       Plataforma privada de generación y validación de contenido publicitario.<br>
+      Diseñada para empresas que no pueden permitirse errores.
+    </p>
+
+    <p class="text-sm text-slate-400 mb-10 italic">
       Acceso limitado · Fase cerrada · Invitación requerida
     </p>
 
     <div class="flex flex-col md:flex-row gap-4 justify-center mb-6">
       <button id="loginGoogle"
-        class="px-8 py-4 bg-blue-600 hover:bg-blue-700 rounded-full font-bold">
+        class="px-10 py-4 bg-blue-600 hover:bg-blue-700 rounded-full font-bold text-lg">
         Iniciar sesión con Google
       </button>
 
-      <div class="px-8 py-4 rounded-full bg-yellow-600/20 border border-yellow-500 text-yellow-300 font-semibold">
-        Acceso prioritario (próximamente)
+      <div class="px-10 py-4 rounded-full bg-yellow-600/20 border border-yellow-500 text-yellow-300 font-semibold text-lg">
+        Acceso prioritario próximamente
       </div>
     </div>
 
@@ -77,76 +83,60 @@
   </div>
 </section>
 
-<!-- ================= PRIVATE VIEW ================= -->
-<section id="privateView" class="hidden flex-1 px-6 py-16 bg-black">
-  <div class="max-w-5xl mx-auto">
+<!-- PRIVATE / LOGGED -->
+<section id="privateView" class="hidden flex-1 flex items-center justify-center px-6 bg-black">
+  <div class="max-w-3xl w-full bg-white/5 border border-white/10 rounded-3xl p-10">
 
-    <!-- HEADER -->
-    <div class="flex justify-between items-center mb-10">
-      <h2 class="text-3xl font-extrabold">Infraestructura de Contenido</h2>
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-extrabold">Infraestructura de Contenido</h2>
       <button id="logoutBtn"
         class="px-4 py-2 text-sm bg-red-600 hover:bg-red-700 rounded">
         Cerrar sesión
       </button>
     </div>
 
-    <!-- STATUS -->
-    <div id="userStatus" class="mb-8 p-4 rounded-xl border border-blue-500 bg-blue-600/10 text-blue-300 font-semibold">
-      Acceso concedido. Plataforma en fase privada de validación.
+    <div class="mb-6 p-4 rounded-xl border border-blue-500 bg-blue-600/10 text-blue-300 text-sm font-semibold">
+      Administrador detectado · Acceso total habilitado
     </div>
 
-    <!-- BRIEF -->
+    <p class="text-slate-400 italic mb-6">
+      Acceso concedido. Plataforma en fase privada de validación.<br>
+      La activación completa se habilita únicamente por invitación interna.
+    </p>
+
     <textarea disabled
       class="w-full h-36 bg-black/40 border border-white/10 rounded-2xl p-6 text-slate-500 italic resize-none cursor-not-allowed mb-6">
 Introduce aquí el brief de tu campaña (disponible próximamente).
     </textarea>
 
-    <!-- CTA -->
     <button disabled
-      class="w-full py-4 rounded-full bg-white/30 text-black/60 font-bold cursor-not-allowed mb-10">
+      class="w-full py-4 rounded-full bg-white/30 text-black/60 font-bold cursor-not-allowed mb-6">
       Infraestructura en fase privada
     </button>
 
-    <!-- ================= PLANS ================= -->
-    <h3 class="text-2xl font-extrabold mb-6">Planes disponibles</h3>
-
-    <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-
-      <div class="p-6 rounded-2xl border border-white/10 bg-white/5">
-        <h4 class="font-bold text-lg mb-2">Plan Básico</h4>
-        <p class="text-slate-400 mb-4">Para validación inicial</p>
-        <div class="text-3xl font-extrabold mb-4">19 €</div>
-        <div class="text-sm italic text-slate-500">Disponible tras validación</div>
+    <!-- PLANES -->
+    <div class="space-y-4">
+      <div class="p-4 border border-white/10 rounded-xl">
+        <strong>Plan Básico — 19 €</strong><br>
+        Validación inicial · Generación limitada · Control de calidad
       </div>
-
-      <div class="p-6 rounded-2xl border border-white/10 bg-white/5">
-        <h4 class="font-bold text-lg mb-2">Plan Estándar Business</h4>
-        <p class="text-slate-400 mb-4">Escalado profesional</p>
-        <div class="text-3xl font-extrabold mb-4">49 €</div>
-        <div class="text-sm italic text-slate-500">Disponible tras validación</div>
+      <div class="p-4 border border-white/10 rounded-xl">
+        <strong>Plan Estándar Business — 49 €</strong><br>
+        Copys listos para test · Coherencia de marca · Flujo profesional
       </div>
-
-      <div class="p-6 rounded-2xl border border-white/10 bg-white/5">
-        <h4 class="font-bold text-lg mb-2">Plan Pro Enterprise</h4>
-        <p class="text-slate-400 mb-4">Equipos avanzados</p>
-        <div class="text-3xl font-extrabold mb-4">149 €</div>
-        <div class="text-sm italic text-slate-500">Disponible tras validación</div>
+      <div class="p-4 border border-white/10 rounded-xl">
+        <strong>Plan Pro Enterprise — 149 €</strong><br>
+        Múltiples campañas · Optimización avanzada · Uso intensivo
       </div>
-
-      <div class="p-6 rounded-2xl border border-white/10 bg-white/5">
-        <h4 class="font-bold text-lg mb-2">Plan Business Global Scale</h4>
-        <p class="text-slate-400 mb-4">Infraestructura total</p>
-        <div class="text-3xl font-extrabold mb-4">299 €</div>
-        <div class="text-sm italic text-slate-500">Disponible tras validación</div>
+      <div class="p-4 border border-white/10 rounded-xl">
+        <strong>Plan Business Global Scale — 299 €</strong><br>
+        Infraestructura total · Prioridad · Enfoque casi agencia
       </div>
-
     </div>
 
-    <!-- ADMIN NOTE -->
-    <div id="adminNote" class="hidden mt-10 p-4 rounded-xl border border-green-500 bg-green-600/10 text-green-300 font-semibold">
-      Modo Administrador activo · Acceso ilimitado habilitado
+    <div class="mt-6 p-4 rounded-xl border border-yellow-500 bg-yellow-600/10 text-yellow-300 text-sm font-semibold">
+      Acceso prioritario disponible tras validación · Modelo premium en preparación
     </div>
-
   </div>
 </section>
 
@@ -154,7 +144,6 @@ Introduce aquí el brief de tu campaña (disponible próximamente).
   © 2026 ZenithAds — Operado desde Asturias, España
 </footer>
 
-<!-- ================= AUTH LOGIC ================= -->
 <script type="module">
   import {
     GoogleAuthProvider,
@@ -163,22 +152,18 @@ Introduce aquí el brief de tu campaña (disponible próximamente).
     signOut
   } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-  const ADMIN_EMAIL = "vitelyus24@gmail.com";
-
   const provider = new GoogleAuthProvider();
 
   const loginBtn = document.getElementById("loginGoogle");
   const logoutBtn = document.getElementById("logoutBtn");
   const publicView = document.getElementById("publicView");
   const privateView = document.getElementById("privateView");
-  const adminNote = document.getElementById("adminNote");
-  const userStatus = document.getElementById("userStatus");
 
   loginBtn.addEventListener("click", async () => {
     try {
       await signInWithPopup(window.firebaseAuth, provider);
-    } catch {
-      alert("Error en inicio de sesión");
+    } catch (e) {
+      alert("Error en login");
     }
   });
 
@@ -186,14 +171,6 @@ Introduce aquí el brief de tu campaña (disponible próximamente).
     if (user) {
       publicView.classList.add("hidden");
       privateView.classList.remove("hidden");
-
-      if (user.email === ADMIN_EMAIL) {
-        adminNote.classList.remove("hidden");
-        userStatus.textContent = "Administrador detectado · Acceso total habilitado";
-      } else {
-        adminNote.classList.add("hidden");
-        userStatus.textContent = "Usuario autenticado · Estado FREE (pendiente de activación)";
-      }
     } else {
       publicView.classList.remove("hidden");
       privateView.classList.add("hidden");
