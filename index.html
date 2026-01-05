@@ -2,8 +2,8 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>ZenithAds — Infraestructura Privada</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZenithAds — Infraestructura privada</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
   <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -14,163 +14,143 @@
   <style>
     body {
       font-family: 'Plus Jakarta Sans', sans-serif;
-      background: #05060a;
+      background: #0a0a0a;
       color: #ffffff;
-    }
-
-    /* VIDEO HERO */
-    .video-bg {
-      position: fixed;
-      inset: 0;
-      z-index: -1;
-      overflow: hidden;
-    }
-
-    .video-bg video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      filter: brightness(0.35);
     }
   </style>
 
-  <!-- FIREBASE -->
+  <!-- Firebase -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import {
-      getAuth,
-      GoogleAuthProvider,
-      signInWithPopup,
-      signOut,
-      onAuthStateChanged
-    } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getAuth } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAK0qbvmsTCdfs3Cdo8bpBHQLDb9rl4-BY",
       authDomain: "zenithads-core.firebaseapp.com",
       projectId: "zenithads-core",
-      storageBucket: "zenithads-core.appspot.com",
+      storageBucket: "zenithads-core.firebasestorage.app",
       messagingSenderId: "594519932448",
       appId: "1:594519932448:web:5908a27fb669f45db2c645"
     };
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
-    const provider = new GoogleAuthProvider();
-
-    window.addEventListener("DOMContentLoaded", () => {
-      const loginBtn = document.getElementById("loginGoogle");
-      const logoutBtn = document.getElementById("logoutBtn");
-      const privatePanel = document.getElementById("privatePanel");
-      const publicHero = document.getElementById("publicHero");
-
-      loginBtn.onclick = async () => {
-        await signInWithPopup(auth, provider);
-      };
-
-      logoutBtn.onclick = async () => {
-        await signOut(auth);
-      };
-
-      onAuthStateChanged(auth, (user) => {
-        if (user) {
-          publicHero.classList.add("hidden");
-          privatePanel.classList.remove("hidden");
-        } else {
-          publicHero.classList.remove("hidden");
-          privatePanel.classList.add("hidden");
-        }
-      });
-    });
+    window.firebaseAuth = auth;
   </script>
 </head>
 
 <body class="min-h-screen flex flex-col">
 
-  <!-- VIDEO -->
-  <div class="video-bg">
-    <video autoplay muted loop playsinline>
-      <source src="https://cdn.coverr.co/videos/coverr-working-in-a-modern-office-1578/1080p.mp4" type="video/mp4">
-    </video>
-  </div>
+<!-- HERO / PUBLIC -->
+<section id="publicView" class="flex-1 flex items-center justify-center px-6"
+  style="background:
+    linear-gradient(rgba(0,0,0,.75), rgba(0,0,0,.85)),
+    url('https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=2000&q=80');
+    background-size: cover;
+    background-position: center;"
+>
+  <div class="max-w-3xl text-center">
+    <h1 class="text-4xl md:text-6xl font-extrabold mb-6">
+      No es una herramienta.<br>
+      <span class="text-blue-500">Es una infraestructura.</span>
+    </h1>
 
-  <!-- HEADER -->
-  <header class="px-10 py-6 flex justify-between items-center">
-    <div class="text-2xl font-extrabold">
-      Zenith<span class="text-blue-500">Ads</span>
-    </div>
-    <button id="logoutBtn" class="hidden px-4 py-2 bg-red-600 hover:bg-red-700 rounded">
-      Cerrar sesión
-    </button>
-  </header>
+    <p class="text-lg text-slate-300 mb-10">
+      Plataforma privada de generación y validación de contenido publicitario.<br>
+      Acceso limitado · Fase cerrada · Invitación requerida
+    </p>
 
-  <!-- HERO PÚBLICO -->
-  <main id="publicHero" class="flex-1 flex items-center justify-center text-center px-6">
-    <div class="max-w-4xl">
-      <h1 class="text-5xl md:text-6xl font-extrabold mb-6">
-        No es una herramienta.<br>
-        <span class="text-blue-500">Es una infraestructura.</span>
-      </h1>
-
-      <p class="text-xl text-slate-300 mb-8">
-        Plataforma privada de generación y validación de contenido publicitario.<br>
-        Acceso limitado. Fase cerrada. Invitación requerida.
-      </p>
-
-      <div class="flex flex-col md:flex-row gap-4 justify-center mb-6">
-        <button id="loginGoogle"
-          class="px-8 py-4 rounded-full bg-blue-600 hover:bg-blue-700 font-bold text-lg">
-          Iniciar sesión con Google
-        </button>
-
-        <button
-          class="px-8 py-4 rounded-full bg-white/20 text-white/80 cursor-not-allowed">
-          Acceso prioritario (próximamente)
-        </button>
-      </div>
-
-      <p class="text-sm italic text-slate-400">
-        Si estás aquí, probablemente no es casualidad.
-      </p>
-    </div>
-  </main>
-
-  <!-- PANEL PRIVADO -->
-  <main id="privatePanel" class="hidden flex-1 flex items-center justify-center px-6">
-    <div class="max-w-2xl w-full bg-white/10 border border-white/20 rounded-3xl p-10">
-      <h2 class="text-3xl font-extrabold mb-4">
-        Infraestructura de Contenido
-      </h2>
-
-      <p class="text-slate-300 mb-6">
-        Acceso concedido. Plataforma en fase privada de validación.<br>
-        La activación completa se habilita únicamente por invitación interna.
-      </p>
-
-      <textarea
-        disabled
-        class="w-full h-32 bg-black/40 border border-white/20 rounded-xl p-4 mb-6 text-slate-400"
-      >Introduce aquí el brief de tu campaña (disponible próximamente)</textarea>
-
-      <button
-        disabled
-        class="w-full py-4 rounded-full bg-white/30 text-black/60 font-bold cursor-not-allowed mb-4">
-        Infraestructura en fase privada
+    <div class="flex flex-col md:flex-row gap-4 justify-center mb-6">
+      <button id="loginGoogle"
+        class="px-8 py-4 bg-blue-600 hover:bg-blue-700 rounded-full font-bold">
+        Iniciar sesión con Google
       </button>
 
-      <!-- PREMONETIZACIÓN -->
-      <div class="mt-6 p-4 border border-yellow-400/40 rounded-xl bg-yellow-400/10">
-        <p class="text-yellow-300 font-semibold">
-          Acceso prioritario disponible tras validación · Modelo premium en preparación
-        </p>
+      <div class="px-8 py-4 rounded-full bg-yellow-600/20 border border-yellow-500 text-yellow-300 font-semibold">
+        Acceso prioritario (próximamente)
       </div>
     </div>
-  </main>
 
-  <!-- FOOTER -->
-  <footer class="px-10 py-6 text-xs text-slate-400 text-center">
-    © 2026 ZenithAds — Operado desde Asturias, España
-  </footer>
+    <p class="text-sm italic text-slate-400">
+      Si estás aquí, probablemente no es casualidad.
+    </p>
+  </div>
+</section>
+
+<!-- PRIVATE / LOGGED -->
+<section id="privateView" class="hidden flex-1 flex items-center justify-center px-6">
+  <div class="max-w-2xl w-full bg-white/5 border border-white/10 rounded-3xl p-10 text-left">
+
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-extrabold">Infraestructura de Contenido</h2>
+      <button id="logoutBtn"
+        class="px-4 py-2 text-sm bg-red-600 hover:bg-red-700 rounded">
+        Cerrar sesión
+      </button>
+    </div>
+
+    <p class="text-slate-400 italic mb-6">
+      Acceso concedido. Plataforma en fase privada de validación.<br>
+      La activación completa se habilita únicamente por invitación interna.
+    </p>
+
+    <textarea disabled
+      class="w-full h-36 bg-black/40 border border-white/10 rounded-2xl p-6 text-slate-500 italic resize-none cursor-not-allowed mb-6">
+Introduce aquí el brief de tu campaña (disponible próximamente).
+    </textarea>
+
+    <button disabled
+      class="w-full py-4 rounded-full bg-white/30 text-black/60 font-bold cursor-not-allowed mb-4">
+      Infraestructura en fase privada
+    </button>
+
+    <div class="mt-4 p-4 rounded-xl border border-yellow-500 bg-yellow-600/10 text-yellow-300 text-sm font-semibold">
+      Acceso prioritario disponible tras validación · Modelo premium en preparación
+    </div>
+  </div>
+</section>
+
+<footer class="px-10 py-6 border-t border-white/10 text-xs text-slate-500 italic text-center">
+  © 2026 ZenithAds — Operado desde Asturias, España
+</footer>
+
+<script type="module">
+  import {
+    GoogleAuthProvider,
+    signInWithPopup,
+    onAuthStateChanged,
+    signOut
+  } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+  const provider = new GoogleAuthProvider();
+
+  const loginBtn = document.getElementById("loginGoogle");
+  const logoutBtn = document.getElementById("logoutBtn");
+  const publicView = document.getElementById("publicView");
+  const privateView = document.getElementById("privateView");
+
+  loginBtn.addEventListener("click", async () => {
+    try {
+      await signInWithPopup(window.firebaseAuth, provider);
+    } catch (e) {
+      alert("Error en login");
+    }
+  });
+
+  onAuthStateChanged(window.firebaseAuth, (user) => {
+    if (user) {
+      publicView.classList.add("hidden");
+      privateView.classList.remove("hidden");
+    } else {
+      publicView.classList.remove("hidden");
+      privateView.classList.add("hidden");
+    }
+  });
+
+  logoutBtn.addEventListener("click", async () => {
+    await signOut(window.firebaseAuth);
+  });
+</script>
 
 </body>
 </html>
