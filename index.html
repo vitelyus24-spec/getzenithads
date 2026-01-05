@@ -19,11 +19,10 @@
     }
   </style>
 
-  <!-- Firebase INIT -->
+  <!-- Firebase Core -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getAuth } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-    import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAK0qbvmsTCdfs3Cdo8bpBHQLDb9rl4-BY",
@@ -35,22 +34,23 @@
     };
 
     const app = initializeApp(firebaseConfig);
-    window.auth = getAuth(app);
-    window.db = getFirestore(app);
+    const auth = getAuth(app);
+    window.firebaseAuth = auth;
   </script>
 </head>
 
 <body class="min-h-screen flex flex-col">
 
-<!-- PUBLIC -->
+<!-- ================= PUBLIC VIEW ================= -->
 <section id="publicView" class="flex-1 flex items-center justify-center px-6"
-style="background:
-linear-gradient(rgba(0,0,0,.75), rgba(0,0,0,.85)),
-url('https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=2000&q=80');
-background-size: cover;
-background-position: center;">
-  <div class="max-w-3xl text-center">
-    <h1 class="text-5xl md:text-6xl font-extrabold mb-6">
+  style="background:
+    linear-gradient(rgba(0,0,0,.75), rgba(0,0,0,.9)),
+    url('https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=2000&q=80');
+    background-size: cover;
+    background-position: center;"
+>
+  <div class="max-w-4xl text-center">
+    <h1 class="text-4xl md:text-6xl font-extrabold mb-6">
       No es una herramienta.<br>
       <span class="text-blue-500">Es una infraestructura.</span>
     </h1>
@@ -67,7 +67,7 @@ background-position: center;">
       </button>
 
       <div class="px-8 py-4 rounded-full bg-yellow-600/20 border border-yellow-500 text-yellow-300 font-semibold">
-        Acceso prioritario próximamente
+        Acceso prioritario (próximamente)
       </div>
     </div>
 
@@ -77,46 +77,76 @@ background-position: center;">
   </div>
 </section>
 
-<!-- PRIVATE -->
-<section id="privateView" class="hidden flex-1 flex items-center justify-center px-6">
-  <div class="max-w-3xl w-full bg-white/5 border border-white/10 rounded-3xl p-10">
+<!-- ================= PRIVATE VIEW ================= -->
+<section id="privateView" class="hidden flex-1 px-6 py-16 bg-black">
+  <div class="max-w-5xl mx-auto">
 
-    <div class="flex justify-between items-center mb-6">
-      <h2 class="text-2xl font-extrabold">Infraestructura de Contenido</h2>
+    <!-- HEADER -->
+    <div class="flex justify-between items-center mb-10">
+      <h2 class="text-3xl font-extrabold">Infraestructura de Contenido</h2>
       <button id="logoutBtn"
         class="px-4 py-2 text-sm bg-red-600 hover:bg-red-700 rounded">
         Cerrar sesión
       </button>
     </div>
 
-    <div id="roleBadge"
-      class="inline-block mb-6 px-4 py-2 rounded-full bg-blue-600/20 border border-blue-500 text-blue-300 font-semibold">
-      Rol: —
+    <!-- STATUS -->
+    <div id="userStatus" class="mb-8 p-4 rounded-xl border border-blue-500 bg-blue-600/10 text-blue-300 font-semibold">
+      Acceso concedido. Plataforma en fase privada de validación.
     </div>
 
-    <p class="text-slate-400 italic mb-6">
-      Plataforma en fase privada de validación.<br>
-      El acceso completo se habilita únicamente por invitación interna.
-    </p>
-
+    <!-- BRIEF -->
     <textarea disabled
       class="w-full h-36 bg-black/40 border border-white/10 rounded-2xl p-6 text-slate-500 italic resize-none cursor-not-allowed mb-6">
 Introduce aquí el brief de tu campaña (disponible próximamente).
     </textarea>
 
-    <!-- PLANES (PREVIEW) -->
-    <div id="plansSection" class="mt-8 hidden">
-      <h3 class="text-xl font-bold mb-4">Planes (preparados)</h3>
-      <div class="grid md:grid-cols-4 gap-4 text-center">
-        <div class="p-4 border border-white/10 rounded-xl">Starter<br>19 €</div>
-        <div class="p-4 border border-white/10 rounded-xl">Business<br>49 €</div>
-        <div class="p-4 border border-white/10 rounded-xl">Pro<br>149 €</div>
-        <div class="p-4 border border-white/10 rounded-xl">Global<br>299 €</div>
+    <!-- CTA -->
+    <button disabled
+      class="w-full py-4 rounded-full bg-white/30 text-black/60 font-bold cursor-not-allowed mb-10">
+      Infraestructura en fase privada
+    </button>
+
+    <!-- ================= PLANS ================= -->
+    <h3 class="text-2xl font-extrabold mb-6">Planes disponibles</h3>
+
+    <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+      <div class="p-6 rounded-2xl border border-white/10 bg-white/5">
+        <h4 class="font-bold text-lg mb-2">Plan Básico</h4>
+        <p class="text-slate-400 mb-4">Para validación inicial</p>
+        <div class="text-3xl font-extrabold mb-4">19 €</div>
+        <div class="text-sm italic text-slate-500">Disponible tras validación</div>
       </div>
-      <p class="text-xs text-slate-400 italic mt-4">
-        Monetización preparada · Stripe no activado
-      </p>
+
+      <div class="p-6 rounded-2xl border border-white/10 bg-white/5">
+        <h4 class="font-bold text-lg mb-2">Plan Estándar Business</h4>
+        <p class="text-slate-400 mb-4">Escalado profesional</p>
+        <div class="text-3xl font-extrabold mb-4">49 €</div>
+        <div class="text-sm italic text-slate-500">Disponible tras validación</div>
+      </div>
+
+      <div class="p-6 rounded-2xl border border-white/10 bg-white/5">
+        <h4 class="font-bold text-lg mb-2">Plan Pro Enterprise</h4>
+        <p class="text-slate-400 mb-4">Equipos avanzados</p>
+        <div class="text-3xl font-extrabold mb-4">149 €</div>
+        <div class="text-sm italic text-slate-500">Disponible tras validación</div>
+      </div>
+
+      <div class="p-6 rounded-2xl border border-white/10 bg-white/5">
+        <h4 class="font-bold text-lg mb-2">Plan Business Global Scale</h4>
+        <p class="text-slate-400 mb-4">Infraestructura total</p>
+        <div class="text-3xl font-extrabold mb-4">299 €</div>
+        <div class="text-sm italic text-slate-500">Disponible tras validación</div>
+      </div>
+
     </div>
+
+    <!-- ADMIN NOTE -->
+    <div id="adminNote" class="hidden mt-10 p-4 rounded-xl border border-green-500 bg-green-600/10 text-green-300 font-semibold">
+      Modo Administrador activo · Acceso ilimitado habilitado
+    </div>
+
   </div>
 </section>
 
@@ -124,6 +154,7 @@ Introduce aquí el brief de tu campaña (disponible próximamente).
   © 2026 ZenithAds — Operado desde Asturias, España
 </footer>
 
+<!-- ================= AUTH LOGIC ================= -->
 <script type="module">
   import {
     GoogleAuthProvider,
@@ -131,49 +162,46 @@ Introduce aquí el brief de tu campaña (disponible próximamente).
     onAuthStateChanged,
     signOut
   } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-  import { doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-  const ADMIN_EMAILS = ["vitelyus24@gmail.com"];
+  const ADMIN_EMAIL = "vitelyus24@gmail.com";
+
   const provider = new GoogleAuthProvider();
 
   const loginBtn = document.getElementById("loginGoogle");
   const logoutBtn = document.getElementById("logoutBtn");
   const publicView = document.getElementById("publicView");
   const privateView = document.getElementById("privateView");
-  const roleBadge = document.getElementById("roleBadge");
-  const plansSection = document.getElementById("plansSection");
+  const adminNote = document.getElementById("adminNote");
+  const userStatus = document.getElementById("userStatus");
 
-  loginBtn.onclick = async () => {
-    await signInWithPopup(window.auth, provider);
-  };
+  loginBtn.addEventListener("click", async () => {
+    try {
+      await signInWithPopup(window.firebaseAuth, provider);
+    } catch {
+      alert("Error en inicio de sesión");
+    }
+  });
 
-  logoutBtn.onclick = async () => {
-    await signOut(window.auth);
-  };
+  onAuthStateChanged(window.firebaseAuth, (user) => {
+    if (user) {
+      publicView.classList.add("hidden");
+      privateView.classList.remove("hidden");
 
-  onAuthStateChanged(window.auth, async (user) => {
-    if (!user) {
+      if (user.email === ADMIN_EMAIL) {
+        adminNote.classList.remove("hidden");
+        userStatus.textContent = "Administrador detectado · Acceso total habilitado";
+      } else {
+        adminNote.classList.add("hidden");
+        userStatus.textContent = "Usuario autenticado · Estado FREE (pendiente de activación)";
+      }
+    } else {
       publicView.classList.remove("hidden");
       privateView.classList.add("hidden");
-      return;
     }
+  });
 
-    publicView.classList.add("hidden");
-    privateView.classList.remove("hidden");
-
-    const role = ADMIN_EMAILS.includes(user.email) ? "admin" : "free";
-    roleBadge.innerText = "Rol: " + role.toUpperCase();
-
-    if (role === "admin") {
-      plansSection.classList.remove("hidden");
-    }
-
-    await setDoc(doc(window.db, "users", user.uid), {
-      email: user.email,
-      role,
-      plan: role === "admin" ? "global" : "free",
-      updatedAt: new Date()
-    }, { merge: true });
+  logoutBtn.addEventListener("click", async () => {
+    await signOut(window.firebaseAuth);
   });
 </script>
 
