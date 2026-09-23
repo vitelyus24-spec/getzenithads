@@ -1,0 +1,4 @@
+// Review fragment only, never deployed by this project.
+match /zenit_v1/{orgId}/{assetId} { allow read, write: if false; }
+// Asset downloads go through authenticated backend authorization.
+// Check existing broad rules: denies do not override a different matching allow.

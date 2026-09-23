@@ -3,29 +3,379 @@ import assert from 'node:assert/strict';
 import { LocalStore } from '../server/store.js';
 import { LocalBlobs } from '../server/blobs.js';
 import { Service } from '../server/service.js';
-import { MockProvider,DisabledProvider,OpenAIProvider,providerFor,ProviderError } from '../server/providers.js';
-import { brandGuardian,complianceGuardian,metrics,roiIndex } from '../server/guardians.js';
+import {
+  MockProvider,
+  DisabledProvider,
+  OpenAIProvider,
+  providerFor,
+  ProviderError,
+} from '../server/providers.js';
+import { brandGuardian, complianceGuardian, metrics, roiIndex } from '../server/guardians.js';
 import { createRuntime } from '../server/runtime.js';
-const alice={uid:'alice',email:'alice@example.invalid'},bob={uid:'bob'};
-const brand={name:'Marca prueba',description:'Producto real',sector:'salud',audience:'adultos',tone:'formal',language:'es',preferredWords:['calidad'],forbiddenWords:['milagroso'],allowedClaims:[],sensitiveClaims:['cura definitiva'],colors:['#112233'],logos:[],productInfo:'Jabón de 100 gramos',urls:[],instructions:'No inventar certificaciones'};
-async function fixture(provider=new MockProvider()){const store=await new LocalStore().init(),blobs=new LocalBlobs(null),service=new Service(store,provider,blobs,{ORG_DAILY_MAX_USD:'1'}),org=await store.bootstrap(alice,'A');await store.bootstrap(bob,'B');const b=await service.save(org.id,alice,'brands',brand),c=await service.save(org.id,alice,'campaigns',{name:'Campaña',brandId:b.id,objective:'ventas',platform:'Meta',country:'ES'}),brief=await service.save(org.id,alice,'briefs',{campaignId:c.id,title:'Jabón',objective:'Presentar producto',offer:'',cta:'Consulta',constraints:'',format:'1:1'});return {store,service,org,b,c,brief,blobs};}
-const key='idempotency-test-0001';
-test('CRUD: persisted brand edit and campaign/brief relationship',async()=>{const f=await fixture();await f.service.save(f.org.id,alice,'brands',{...brand,name:'Editada'},f.b.id);assert.equal((await f.service.view(f.org.id,alice)).brands[f.b.id].name,'Editada');assert.equal((await f.service.view(f.org.id,alice)).briefs[f.brief.id].campaignId,f.c.id);});
-test('cross-organization read/write/foreign relationships denied',async()=>{const f=await fixture();await assert.rejects(()=>f.service.view(f.org.id,bob),e=>e.status===403);await assert.rejects(()=>f.service.save(f.org.id,bob,'brands',brand),e=>e.status===403);await assert.rejects(()=>f.service.save(f.org.id,alice,'briefs',{campaignId:'foreign',title:'x',objective:'x',offer:'',cta:'',constraints:'',format:'1:1'}),e=>e.status===404);});
-test('role/plan/credits injection rejected; viewers cannot mutate',async()=>{const f=await fixture();for(const prop of ['role','plan','credits','subscription'])await assert.rejects(()=>f.service.save(f.org.id,alice,'brands',{...brand,[prop]:'owner'}));await f.service.member(f.org.id,alice,{uid:'bob',role:'viewer'});assert.ok(await f.service.view(f.org.id,bob));await assert.rejects(()=>f.service.save(f.org.id,bob,'brands',brand),e=>e.status===403);await assert.rejects(()=>f.service.member(f.org.id,bob,{uid:'alice',role:'editor'}));await assert.rejects(()=>f.service.member(f.org.id,alice,{uid:'bob',role:'owner'}));});
-test('copy E2E mock creates asset, usage, audit and fixed testing debit',async()=>{const f=await fixture();const j=await f.service.enqueue(f.org.id,alice,{briefId:f.brief.id,kind:'copy'},key);assert.equal((await f.store.get(f.org.id)).creditBalance,99);const done=await f.service.run(f.org.id,alice,j.id),org=await f.store.get(f.org.id);assert.equal(done.status,'completed');assert.match(org.assets[done.assetId].content,/DEMO/);assert.equal(org.usage[0].status,'settled');assert.equal(org.usage[0].creditsConsumed,1);assert.equal(org.usage[0].costActualUSD,0);assert.ok(org.audit_logs.some(x=>x.action==='job.completed'));});
-test('duplicate concurrent enqueue and execution only calls provider once',async()=>{const p=new MockProvider();let calls=0;const generate=p.generate.bind(p);p.generate=async x=>{calls++;await new Promise(r=>setTimeout(r,10));return generate(x);};const f=await fixture(p);const jobs=await Promise.all(Array.from({length:8},()=>f.service.enqueue(f.org.id,alice,{briefId:f.brief.id,kind:'copy'},key)));assert.equal(new Set(jobs.map(j=>j.id)).size,1);await Promise.all(jobs.map(j=>f.service.run(f.org.id,alice,j.id)));assert.equal(calls,1);assert.equal((await f.store.get(f.org.id)).usage.length,1);});
-test('idempotency key cannot identify a different payload',async()=>{const f=await fixture();await f.service.enqueue(f.org.id,alice,{briefId:f.brief.id,kind:'copy'},key);await assert.rejects(()=>f.service.enqueue(f.org.id,alice,{briefId:f.brief.id,kind:'image'},key),e=>e.code==='IDEMPOTENCY_CONFLICT');});
-test('image requires org copy, persists downloadable file',async()=>{const f=await fixture();await assert.rejects(()=>f.service.enqueue(f.org.id,alice,{briefId:f.brief.id,kind:'image'},key),e=>e.code==='COPY_REQUIRED');const j=await f.service.enqueue(f.org.id,alice,{briefId:f.brief.id,kind:'copy'},key),done=await f.service.run(f.org.id,alice,j.id);const image=await f.service.enqueue(f.org.id,alice,{briefId:f.brief.id,kind:'image',copyAssetId:done.assetId},key+'image');const result=await f.service.run(f.org.id,alice,image.id);assert.match((await f.blobs.get(f.org.id,result.assetId)).toString(),/DEMO/);assert.equal((await f.store.get(f.org.id)).creditBalance,89);});
-test('moderation failure before provider releases reservation',async()=>{const p=new MockProvider();p.moderate=async()=>({flagged:true});const f=await fixture(p),j=await f.service.enqueue(f.org.id,alice,{briefId:f.brief.id,kind:'copy'},key);const result=await f.service.run(f.org.id,alice,j.id);assert.equal(result.status,'failed');assert.equal((await f.store.get(f.org.id)).creditBalance,100);});
-test('uncertain provider costs hold credits and deny retry',async()=>{const p=new MockProvider();p.generate=async()=>{throw new ProviderError('TIMEOUT','timeout',true);};const f=await fixture(p),j=await f.service.enqueue(f.org.id,alice,{briefId:f.brief.id,kind:'copy'},key);assert.equal((await f.service.run(f.org.id,alice,j.id)).status,'uncertain');assert.equal((await f.store.get(f.org.id)).creditBalance,99);await assert.rejects(()=>f.service.retry(f.org.id,alice,j.id),e=>e.code==='RETRY_NOT_SAFE');});
-test('lower actual cost returns unused reservation',async()=>{const p=new MockProvider();p.demo=false;p.estimate=()=>0.5;p.generate=async()=>({bytes:Buffer.from('fixture'),mime:'image/png',demo:false,costUSD:0.1,usage:{}});const f=await fixture();const copy=await f.service.enqueue(f.org.id,alice,{briefId:f.brief.id,kind:'copy'},key),r=await f.service.run(f.org.id,alice,copy.id);f.service.provider=p;const job=await f.service.enqueue(f.org.id,alice,{briefId:f.brief.id,kind:'image',copyAssetId:r.assetId},key+'image');await f.service.run(f.org.id,alice,job.id);const org=await f.store.get(f.org.id);assert.equal(org.usage[1].creditsConsumed,2);assert.equal(org.usage[1].releasedCredits,8);});
-test('insufficient credits, inactive plan, disabled video, daily cost cap',async()=>{const f=await fixture();await assert.rejects(()=>f.service.enqueue(f.org.id,alice,{briefId:f.brief.id,kind:'video'},key),e=>e.code==='FEATURE_DISABLED');await f.store.transaction(f.org.id,o=>{o.creditBalance=0;});await assert.rejects(()=>f.service.enqueue(f.org.id,alice,{briefId:f.brief.id,kind:'copy'},key),e=>e.code==='INSUFFICIENT_CREDITS');await f.store.transaction(f.org.id,o=>{o.creditBalance=100;o.subscription.status='past_due';});await assert.rejects(()=>f.service.enqueue(f.org.id,alice,{briefId:f.brief.id,kind:'copy'},key),e=>e.code==='SUBSCRIPTION_INACTIVE');await f.store.transaction(f.org.id,o=>{o.subscription.status='pilot';});f.service.provider.estimate=()=>2;await assert.rejects(()=>f.service.enqueue(f.org.id,alice,{briefId:f.brief.id,kind:'copy'},key),e=>e.code==='COST_LIMIT');});
-test('provider disabled and mocks fail closed outside local; paid API gated',async()=>{assert.throws(()=>new DisabledProvider().estimate());assert.throws(()=>providerFor({AI_PROVIDER:'mock',APP_MODE:'production'}));assert.throws(()=>new OpenAIProvider({OPENAI_API_KEY:'not-a-key'}).estimate('copy','x'),e=>e.code==='SPEND_DISABLED');await assert.rejects(()=>createRuntime({APP_MODE:'production',DEMO_AUTH:'true',STORE:'file'}),e=>e.code==='DEMO_FORBIDDEN');await assert.rejects(()=>createRuntime({APP_MODE:'preview',STORE:'file'}),e=>e.code==='FILE_STORE_FORBIDDEN');});
-test('Brand Guardian returns specific issues and limits semantic claims',()=>{const result=brandGuardian('Bro, producto milagroso y cura definitiva',brand);assert.ok(result.issues.some(i=>i.rule==='BRAND-FORBIDDEN'&&i.location.start>=0&&i.recommendation));assert.ok(result.issues.some(i=>i.rule==='BRAND-SENSITIVE-CLAIM'));assert.ok(result.review.some(i=>i.rule==='BRAND-FACTS'));assert.notEqual(result.status,'approved');});
-test('Compliance separates layers and reports evidence',()=>{const r=complianceGuardian('Resultados garantizados. Cura definitiva.',brand,{platform:'Meta',country:'ES'});assert.ok(r.issues.some(i=>i.layer==='advertising_policy'));assert.ok(r.issues.some(i=>i.layer==='sector'));assert.match(r.disclaimer,/No garantiza/);});
-test('metrics formulas exact and zero denominators explicit',()=>{assert.deepEqual(metrics({spend:100,impressions:1000,clicks:50,conversions:5,revenue:300}),{CPA:20,ROAS:3,CTR:5,CPC:2});assert.deepEqual(metrics({spend:0,impressions:0,clicks:0,conversions:0,revenue:0}),{CPA:null,ROAS:null,CTR:null,CPC:null});assert.equal(roiIndex({spend:100,revenue:300}).value,200);assert.equal(roiIndex({spend:0,revenue:300}).value,null);});
-test('metrics duplicate prevention and source-less trends rejected',async()=>{const f=await fixture(),source=await f.service.save(f.org.id,alice,'sources',{name:'CSV',platform:'Meta',type:'manual',evidence:'export.csv fila1'}),row={sourceId:source.id,campaignId:f.c.id,date:'2026-09-22',currency:'EUR',spend:100,impressions:1000,clicks:50,conversions:5,revenue:300,evidence:'fila1'};await f.service.save(f.org.id,alice,'metrics',row);await assert.rejects(()=>f.service.save(f.org.id,alice,'metrics',row),e=>e.code==='DUPLICATE_METRIC');await assert.rejects(()=>f.service.save(f.org.id,alice,'trends',{title:'sin fuente'}));});
-test('unsafe reference URLs rejected; no asset upload execution',async()=>{const f=await fixture();for(const url of ['javascript:alert(1)','http://example.com','https://127.0.0.1/a'])await assert.rejects(()=>f.service.save(f.org.id,alice,'brands',{...brand,urls:[url]}));await assert.rejects(()=>f.service.saveAsset(f.org.id,alice,{name:'x',content:'<script>x</script>',mime:'text/html'}));});
-test('transaction rollback does not partially consume credit',async()=>{const f=await fixture();await assert.rejects(()=>f.store.transaction(f.org.id,o=>{o.creditBalance=0;throw new Error('abort');}));assert.equal((await f.store.get(f.org.id)).creditBalance,100);});
-test('viewer snapshot hides billing identifiers and other member emails',async()=>{const f=await fixture();await f.service.member(f.org.id,alice,{uid:'bob',role:'viewer'});await f.store.transaction(f.org.id,o=>{o.subscription.customerId='cus_private';});const snapshot=await f.service.view(f.org.id,bob);assert.deepEqual(Object.keys(snapshot.members),['bob']);assert.equal(snapshot.subscription.customerId,undefined);assert.equal(snapshot.billingEvents,undefined);});
+const alice = { uid: 'alice', email: 'alice@example.invalid' },
+  bob = { uid: 'bob' };
+const brand = {
+  name: 'Marca prueba',
+  description: 'Producto real',
+  sector: 'salud',
+  audience: 'adultos',
+  tone: 'formal',
+  language: 'es',
+  preferredWords: ['calidad'],
+  forbiddenWords: ['milagroso'],
+  allowedClaims: [],
+  sensitiveClaims: ['cura definitiva'],
+  colors: ['#112233'],
+  logos: [],
+  productInfo: 'Jabón de 100 gramos',
+  urls: [],
+  instructions: 'No inventar certificaciones',
+};
+async function fixture(provider = new MockProvider()) {
+  const store = await new LocalStore().init(),
+    blobs = new LocalBlobs(null),
+    service = new Service(store, provider, blobs, { ORG_DAILY_MAX_USD: '1' }),
+    org = await store.bootstrap(alice, 'A');
+  await store.bootstrap(bob, 'B');
+  const b = await service.save(org.id, alice, 'brands', brand),
+    c = await service.save(org.id, alice, 'campaigns', {
+      name: 'Campaña',
+      brandId: b.id,
+      objective: 'ventas',
+      platform: 'Meta',
+      country: 'ES',
+    }),
+    brief = await service.save(org.id, alice, 'briefs', {
+      campaignId: c.id,
+      title: 'Jabón',
+      objective: 'Presentar producto',
+      offer: '',
+      cta: 'Consulta',
+      constraints: '',
+      format: '1:1',
+    });
+  return { store, service, org, b, c, brief, blobs };
+}
+const key = 'idempotency-test-0001';
+test('CRUD: persisted brand edit and campaign/brief relationship', async () => {
+  const f = await fixture();
+  await f.service.save(f.org.id, alice, 'brands', { ...brand, name: 'Editada' }, f.b.id);
+  assert.equal((await f.service.view(f.org.id, alice)).brands[f.b.id].name, 'Editada');
+  assert.equal((await f.service.view(f.org.id, alice)).briefs[f.brief.id].campaignId, f.c.id);
+});
+test('cross-organization read/write/foreign relationships denied', async () => {
+  const f = await fixture();
+  await assert.rejects(
+    () => f.service.view(f.org.id, bob),
+    (e) => e.status === 403,
+  );
+  await assert.rejects(
+    () => f.service.save(f.org.id, bob, 'brands', brand),
+    (e) => e.status === 403,
+  );
+  await assert.rejects(
+    () =>
+      f.service.save(f.org.id, alice, 'briefs', {
+        campaignId: 'foreign',
+        title: 'x',
+        objective: 'x',
+        offer: '',
+        cta: '',
+        constraints: '',
+        format: '1:1',
+      }),
+    (e) => e.status === 404,
+  );
+});
+test('role/plan/credits injection rejected; viewers cannot mutate', async () => {
+  const f = await fixture();
+  for (const prop of ['role', 'plan', 'credits', 'subscription'])
+    await assert.rejects(() =>
+      f.service.save(f.org.id, alice, 'brands', { ...brand, [prop]: 'owner' }),
+    );
+  await f.service.member(f.org.id, alice, { uid: 'bob', role: 'viewer' });
+  assert.ok(await f.service.view(f.org.id, bob));
+  await assert.rejects(
+    () => f.service.save(f.org.id, bob, 'brands', brand),
+    (e) => e.status === 403,
+  );
+  await assert.rejects(() => f.service.member(f.org.id, bob, { uid: 'alice', role: 'editor' }));
+  await assert.rejects(() => f.service.member(f.org.id, alice, { uid: 'bob', role: 'owner' }));
+});
+test('copy E2E mock creates asset, usage, audit and fixed testing debit', async () => {
+  const f = await fixture();
+  const j = await f.service.enqueue(f.org.id, alice, { briefId: f.brief.id, kind: 'copy' }, key);
+  assert.equal((await f.store.get(f.org.id)).creditBalance, 99);
+  const done = await f.service.run(f.org.id, alice, j.id),
+    org = await f.store.get(f.org.id);
+  assert.equal(done.status, 'completed');
+  assert.match(org.assets[done.assetId].content, /DEMO/);
+  assert.equal(org.usage[0].status, 'settled');
+  assert.equal(org.usage[0].creditsConsumed, 1);
+  assert.equal(org.usage[0].costActualUSD, 0);
+  assert.ok(org.audit_logs.some((x) => x.action === 'job.completed'));
+});
+test('duplicate concurrent enqueue and execution only calls provider once', async () => {
+  const p = new MockProvider();
+  let calls = 0;
+  const generate = p.generate.bind(p);
+  p.generate = async (x) => {
+    calls++;
+    await new Promise((r) => setTimeout(r, 10));
+    return generate(x);
+  };
+  const f = await fixture(p);
+  const jobs = await Promise.all(
+    Array.from({ length: 8 }, () =>
+      f.service.enqueue(f.org.id, alice, { briefId: f.brief.id, kind: 'copy' }, key),
+    ),
+  );
+  assert.equal(new Set(jobs.map((j) => j.id)).size, 1);
+  await Promise.all(jobs.map((j) => f.service.run(f.org.id, alice, j.id)));
+  assert.equal(calls, 1);
+  assert.equal((await f.store.get(f.org.id)).usage.length, 1);
+});
+test('idempotency key cannot identify a different payload', async () => {
+  const f = await fixture();
+  await f.service.enqueue(f.org.id, alice, { briefId: f.brief.id, kind: 'copy' }, key);
+  await assert.rejects(
+    () => f.service.enqueue(f.org.id, alice, { briefId: f.brief.id, kind: 'image' }, key),
+    (e) => e.code === 'IDEMPOTENCY_CONFLICT',
+  );
+});
+test('image requires org copy, persists downloadable file', async () => {
+  const f = await fixture();
+  await assert.rejects(
+    () => f.service.enqueue(f.org.id, alice, { briefId: f.brief.id, kind: 'image' }, key),
+    (e) => e.code === 'COPY_REQUIRED',
+  );
+  const j = await f.service.enqueue(f.org.id, alice, { briefId: f.brief.id, kind: 'copy' }, key),
+    done = await f.service.run(f.org.id, alice, j.id);
+  const image = await f.service.enqueue(
+    f.org.id,
+    alice,
+    { briefId: f.brief.id, kind: 'image', copyAssetId: done.assetId },
+    key + 'image',
+  );
+  const result = await f.service.run(f.org.id, alice, image.id);
+  assert.match((await f.blobs.get(f.org.id, result.assetId)).toString(), /DEMO/);
+  assert.equal((await f.store.get(f.org.id)).creditBalance, 89);
+});
+test('moderation failure before provider releases reservation', async () => {
+  const p = new MockProvider();
+  p.moderate = async () => ({ flagged: true });
+  const f = await fixture(p),
+    j = await f.service.enqueue(f.org.id, alice, { briefId: f.brief.id, kind: 'copy' }, key);
+  const result = await f.service.run(f.org.id, alice, j.id);
+  assert.equal(result.status, 'failed');
+  assert.equal((await f.store.get(f.org.id)).creditBalance, 100);
+});
+test('uncertain provider costs hold credits and deny retry', async () => {
+  const p = new MockProvider();
+  p.generate = async () => {
+    throw new ProviderError('TIMEOUT', 'timeout', true);
+  };
+  const f = await fixture(p),
+    j = await f.service.enqueue(f.org.id, alice, { briefId: f.brief.id, kind: 'copy' }, key);
+  assert.equal((await f.service.run(f.org.id, alice, j.id)).status, 'uncertain');
+  assert.equal((await f.store.get(f.org.id)).creditBalance, 99);
+  await assert.rejects(
+    () => f.service.retry(f.org.id, alice, j.id),
+    (e) => e.code === 'RETRY_NOT_SAFE',
+  );
+});
+test('lower actual cost returns unused reservation', async () => {
+  const p = new MockProvider();
+  p.demo = false;
+  p.estimate = () => 0.5;
+  p.generate = async () => ({
+    bytes: Buffer.from('fixture'),
+    mime: 'image/png',
+    demo: false,
+    costUSD: 0.1,
+    usage: {},
+  });
+  const f = await fixture();
+  const copy = await f.service.enqueue(f.org.id, alice, { briefId: f.brief.id, kind: 'copy' }, key),
+    r = await f.service.run(f.org.id, alice, copy.id);
+  f.service.provider = p;
+  const job = await f.service.enqueue(
+    f.org.id,
+    alice,
+    { briefId: f.brief.id, kind: 'image', copyAssetId: r.assetId },
+    key + 'image',
+  );
+  await f.service.run(f.org.id, alice, job.id);
+  const org = await f.store.get(f.org.id);
+  assert.equal(org.usage[1].creditsConsumed, 2);
+  assert.equal(org.usage[1].releasedCredits, 8);
+});
+test('insufficient credits, inactive plan, disabled video, daily cost cap', async () => {
+  const f = await fixture();
+  await assert.rejects(
+    () => f.service.enqueue(f.org.id, alice, { briefId: f.brief.id, kind: 'video' }, key),
+    (e) => e.code === 'FEATURE_DISABLED',
+  );
+  await f.store.transaction(f.org.id, (o) => {
+    o.creditBalance = 0;
+  });
+  await assert.rejects(
+    () => f.service.enqueue(f.org.id, alice, { briefId: f.brief.id, kind: 'copy' }, key),
+    (e) => e.code === 'INSUFFICIENT_CREDITS',
+  );
+  await f.store.transaction(f.org.id, (o) => {
+    o.creditBalance = 100;
+    o.subscription.status = 'past_due';
+  });
+  await assert.rejects(
+    () => f.service.enqueue(f.org.id, alice, { briefId: f.brief.id, kind: 'copy' }, key),
+    (e) => e.code === 'SUBSCRIPTION_INACTIVE',
+  );
+  await f.store.transaction(f.org.id, (o) => {
+    o.subscription.status = 'pilot';
+  });
+  f.service.provider.estimate = () => 2;
+  await assert.rejects(
+    () => f.service.enqueue(f.org.id, alice, { briefId: f.brief.id, kind: 'copy' }, key),
+    (e) => e.code === 'COST_LIMIT',
+  );
+});
+test('provider disabled and mocks fail closed outside local; paid API gated', async () => {
+  assert.throws(() => new DisabledProvider().estimate());
+  assert.throws(() => providerFor({ AI_PROVIDER: 'mock', APP_MODE: 'production' }));
+  assert.throws(
+    () => new OpenAIProvider({ OPENAI_API_KEY: 'not-a-key' }).estimate('copy', 'x'),
+    (e) => e.code === 'SPEND_DISABLED',
+  );
+  await assert.rejects(
+    () => createRuntime({ APP_MODE: 'production', DEMO_AUTH: 'true', STORE: 'file' }),
+    (e) => e.code === 'DEMO_FORBIDDEN',
+  );
+  await assert.rejects(
+    () => createRuntime({ APP_MODE: 'preview', STORE: 'file' }),
+    (e) => e.code === 'FILE_STORE_FORBIDDEN',
+  );
+});
+test('Brand Guardian returns specific issues and limits semantic claims', () => {
+  const result = brandGuardian('Bro, producto milagroso y cura definitiva', brand);
+  assert.ok(
+    result.issues.some(
+      (i) => i.rule === 'BRAND-FORBIDDEN' && i.location.start >= 0 && i.recommendation,
+    ),
+  );
+  assert.ok(result.issues.some((i) => i.rule === 'BRAND-SENSITIVE-CLAIM'));
+  assert.ok(result.review.some((i) => i.rule === 'BRAND-FACTS'));
+  assert.notEqual(result.status, 'approved');
+});
+test('Compliance separates layers and reports evidence', () => {
+  const r = complianceGuardian('Resultados garantizados. Cura definitiva.', brand, {
+    platform: 'Meta',
+    country: 'ES',
+  });
+  assert.ok(r.issues.some((i) => i.layer === 'advertising_policy'));
+  assert.ok(r.issues.some((i) => i.layer === 'sector'));
+  assert.match(r.disclaimer, /No garantiza/);
+});
+test('metrics formulas exact and zero denominators explicit', () => {
+  assert.deepEqual(
+    metrics({ spend: 100, impressions: 1000, clicks: 50, conversions: 5, revenue: 300 }),
+    { CPA: 20, ROAS: 3, CTR: 5, CPC: 2 },
+  );
+  assert.deepEqual(metrics({ spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 }), {
+    CPA: null,
+    ROAS: null,
+    CTR: null,
+    CPC: null,
+  });
+  assert.equal(roiIndex({ spend: 100, revenue: 300 }).value, 200);
+  assert.equal(roiIndex({ spend: 0, revenue: 300 }).value, null);
+});
+test('metrics duplicate prevention and source-less trends rejected', async () => {
+  const f = await fixture(),
+    source = await f.service.save(f.org.id, alice, 'sources', {
+      name: 'CSV',
+      platform: 'Meta',
+      type: 'manual',
+      evidence: 'export.csv fila1',
+    }),
+    row = {
+      sourceId: source.id,
+      campaignId: f.c.id,
+      date: '2026-09-22',
+      currency: 'EUR',
+      spend: 100,
+      impressions: 1000,
+      clicks: 50,
+      conversions: 5,
+      revenue: 300,
+      evidence: 'fila1',
+    };
+  await f.service.save(f.org.id, alice, 'metrics', row);
+  await assert.rejects(
+    () => f.service.save(f.org.id, alice, 'metrics', row),
+    (e) => e.code === 'DUPLICATE_METRIC',
+  );
+  await assert.rejects(() => f.service.save(f.org.id, alice, 'trends', { title: 'sin fuente' }));
+});
+test('unsafe reference URLs rejected; no asset upload execution', async () => {
+  const f = await fixture();
+  for (const url of ['javascript:alert(1)', 'http://example.com', 'https://127.0.0.1/a'])
+    await assert.rejects(() =>
+      f.service.save(f.org.id, alice, 'brands', { ...brand, urls: [url] }),
+    );
+  await assert.rejects(() =>
+    f.service.saveAsset(f.org.id, alice, {
+      name: 'x',
+      content: '<script>x</script>',
+      mime: 'text/html',
+    }),
+  );
+});
+test('transaction rollback does not partially consume credit', async () => {
+  const f = await fixture();
+  await assert.rejects(() =>
+    f.store.transaction(f.org.id, (o) => {
+      o.creditBalance = 0;
+      throw new Error('abort');
+    }),
+  );
+  assert.equal((await f.store.get(f.org.id)).creditBalance, 100);
+});
+test('viewer snapshot hides billing identifiers and other member emails', async () => {
+  const f = await fixture();
+  await f.service.member(f.org.id, alice, { uid: 'bob', role: 'viewer' });
+  await f.store.transaction(f.org.id, (o) => {
+    o.subscription.customerId = 'cus_private';
+  });
+  const snapshot = await f.service.view(f.org.id, bob);
+  assert.deepEqual(Object.keys(snapshot.members), ['bob']);
+  assert.equal(snapshot.subscription.customerId, undefined);
+  assert.equal(snapshot.billingEvents, undefined);
+});
+test('human review is persisted and moderation block cannot be overridden', async () => {
+  const f = await fixture(),
+    j = await f.service.enqueue(f.org.id, alice, { briefId: f.brief.id, kind: 'copy' }, key),
+    done = await f.service.run(f.org.id, alice, j.id);
+  await f.service.reviewAsset(f.org.id, alice, done.assetId, {
+    decision: 'approved',
+    note: 'Revisado contra producto',
+  });
+  assert.equal((await f.store.get(f.org.id)).assets[done.assetId].humanReview.reviewedBy, 'alice');
+  await f.store.transaction(f.org.id, (o) => {
+    o.assets[done.assetId].moderation.flagged = true;
+  });
+  await assert.rejects(
+    () => f.service.reviewAsset(f.org.id, alice, done.assetId, { decision: 'approved', note: 'x' }),
+    (e) => e.code === 'MODERATION_BLOCK',
+  );
+});
+test('job queue survives read/claim and rejects interrupted execution retries', async () => {
+  const f = await fixture(),
+    j = await f.service.enqueue(f.org.id, alice, { briefId: f.brief.id, kind: 'copy' }, key);
+  await f.store.transaction(f.org.id, (o) => {
+    o.generation_jobs[j.id].status = 'running';
+    o.generation_jobs[j.id].updatedAt = '2026-01-01T00:00:00Z';
+  });
+  assert.equal((await f.service.recover(f.org.id, alice, j.id)).status, 'uncertain');
+  await assert.rejects(() => f.service.retry(f.org.id, alice, j.id));
+});

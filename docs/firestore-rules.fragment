@@ -1,0 +1,6 @@
+// Merge ONLY after inspecting existing rules. NEVER deploy as a replacement ruleset.
+// Backend Admin SDK/IAM is authoritative; browser access to new namespace is denied.
+match /zenit_v1_organizations/{orgId} { allow read, write: if false; }
+match /zenit_v1_users/{uid} { allow read, write: if false; }
+// IMPORTANT: a broader existing allow rule can still grant access. Firebase rules OR matches.
+// Validate all existing overlapping match blocks and test in emulator before any deployment.

@@ -1,0 +1,9 @@
+{
+  "version": "draft-1",
+  "commissionRateReference": 0.2,
+  "activityDefinition": null,
+  "attributionWindowDays": null,
+  "commissionBasePolicy": null,
+  "payoutsEnabled": false,
+  "autoAttributionEnabled": false
+}

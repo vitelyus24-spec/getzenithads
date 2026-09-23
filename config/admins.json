@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "bootstrapVerifiedEmails": ["vitelyus24@gmail.com"],
+  "note": "Server-only. Pin SUPERADMIN_UIDS after reading the verified Firebase UID. Never accept an email or role from request bodies."
+}

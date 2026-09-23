@@ -1,63 +1,467 @@
+import { experience, story } from './landing.js';
 import './style.css';
-import {configureAuth,observe,loginGoogle,loginEmail,logout,resetPassword} from './auth.js';
-const root=document.querySelector('#app');
-const state={user:null,token:null,org:null,orgs:[],view:'overview',busy:false,notice:'',error:'',health:null,editBrand:null};
-const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const values=obj=>Object.values(obj||{});
-const list=value=>String(value||'').split(/\n|,/).map(x=>x.trim()).filter(Boolean);
-const statuses={queued:'En cola',running:'En curso',completed:'Completado',review_required:'Revisión requerida',failed:'Error',uncertain:'Conciliación pendiente'};
-const options=(rows,label='name',selected='')=>rows.map(x=>`<option value="${esc(x.id)}" ${x.id===selected?'selected':''}>${esc(x[label])}</option>`).join('');
-const field=(name,label,value='',type='text',required=false)=>`<label>${label}<input name="${name}" type="${type}" ${type==='number'?'step="any" min="0"':''} value="${esc(value)}" ${required?'required':''} maxlength="2000"></label>`;
-const area=(name,label,value='')=>`<label>${label}<textarea name="${name}" rows="3" maxlength="6000">${esc(Array.isArray(value)?value.join('\n'):value)}</textarea></label>`;
-const select=(name,label,opts)=>`<label>${label}<select name="${name}" required>${opts}</select></label>`;
-const button=(text,action,extra='')=>`<button type="button" data-action="${action}" ${extra}>${text}</button>`;
-const submit=text=>`<button type="submit">${text}</button>`;
-const orgPath=suffix=>`/api/orgs/${state.org.id}${suffix}`;
-async function api(path,{method='GET',data,key,blob=false}={}){const token=state.user?.getIdToken?await state.user.getIdToken():state.token;const r=await fetch(path,{method,headers:{...(token?{Authorization:`Bearer ${token}`} :{}),...(method!=='GET'?{'Content-Type':'application/json'}:{}),...(key?{'Idempotency-Key':key}:{})},...(data?{body:JSON.stringify(data)}:{})});if(!r.ok){let d;try{d=await r.json();}catch{throw new Error('El servidor no respondió correctamente');}throw new Error(d.error?.message||'Error de servicio');}return blob?r.blob():r.json();}
-async function refresh(){const me=await api('/api/me');state.orgs=me.organizations;const current=state.orgs.find(o=>o.id===state.org?.id)||state.orgs[0];state.org=current?await api(`/api/orgs/${current.id}`):null;}
-function footer(){return `<footer><span>© 2026 ZenithAds · Asturias · Piloto en desarrollo</span><nav aria-label="Información legal">${['Aviso Legal','Privacidad','Cookies','Términos','IA y contenido','Partners'].map(x=>`<a href="#legal-${encodeURIComponent(x)}" data-legal="${esc(x)}">${x}</a>`).join('')}</nav></footer>`;}
-function landing(){return `<main id="main" class="landing"><div class="brand-word">ZENITH<span>ADS</span></div><div class="hero"><p class="eyebrow">INFRAESTRUCTURA PUBLICITARIA · PILOTO PRIVADO</p><h1>No es una herramienta.<br>Es una infraestructura.</h1><p class="lead">Tu marca, tus campañas y tu contenido, en un espacio de trabajo con control de acceso y consumo.</p><div class="capabilities"><span>DISPONIBLE EN DESARROLLO · marcas y briefs</span><span>BETA · Guardian básico</span><span>PRÓXIMAMENTE · IA conectada</span></div><section class="login-card" aria-labelledby="login-title"><h2 id="login-title">Accede a tu espacio</h2><p>Acceso privado. La generación de pago permanece desactivada.</p>${configureAvailable?button('Continuar con Google','google'): '<p class="callout">Firebase pendiente de configurar en este entorno. No se simula un inicio de sesión real.</p>'}${configureAvailable&&import.meta.env.VITE_EMAIL_AUTH_ENABLED==='true'?`<form id="email-login">${field('email','Email','','email',true)}${field('password','Contraseña','','password',true)}${submit('Entrar con email')}${button('Restablecer contraseña','reset')}</form>`:''}${state.health?.demo?`<div class="demo"><strong>DEMO LOCAL · sin Firebase ni IA real</strong><p>Datos de prueba persistidos únicamente en el servidor local.</p>${button('Entrar como Alice (DEMO)','demo','data-user="demo-alice"')}${button('Entrar como Bob (DEMO)','demo','data-user="demo-bob"')}</div>`:''}</section></div><section class="public-info"><h2>Construido alrededor de tu marca</h2><p>Organiza perfiles, campañas y briefs. Revisa riesgos concretos antes de publicar. Las funciones no conectadas se identifican expresamente y no se presentan como resultados reales.</p></section></main>`;}
-const navItems=[['overview','Resumen'],['brands','Marcas'],['campaigns','Campañas'],['briefs','Briefs'],['generate','Generador'],['jobs','Trabajos'],['assets','Activos'],['analytics','TII / ROI'],['trends','Trends Pulse'],['settings','Configuración']];
-function shell(){if(!state.org)return `<main id="main" class="onboarding"><h1>Tu primer workspace</h1><p>Usuario: ${esc(state.user.email||state.user.uid)}</p><form id="onboarding">${field('name','Nombre de organización','','text',true)}${submit('Crear workspace de prueba')}</form>${button('Cerrar sesión','logout')}</main>`;return `<div class="workspace"><aside><a class="brand-word" href="#">ZENITH<span>ADS</span></a><p class="muted">INFRAESTRUCTURA DE CONTENIDO</p><nav aria-label="Panel">${navItems.map(([key,name])=>`<button data-view="${key}" aria-current="${state.view===key?'page':'false'}">${name}</button>`).join('')}</nav><p class="sidebar-note">Sin cifras inventadas.<br>Sin publicación automática.</p></aside><div class="workspace-body"><header><div><span class="eyebrow">ESPACIO DE TRABAJO</span><strong>${esc(state.org.name)}</strong></div><div class="user-menu"><span>${esc(state.user.email||state.user.uid)}<small>${esc(state.org.members[state.user.uid]?.role||'miembro')}</small></span>${button('Cerrar sesión','logout')}</div></header>${state.health?.demo?'<div class="demo ribbon">DEMO LOCAL · autenticación y proveedor simulados · sin cargos</div>':''}<main id="main" tabindex="-1">${views[state.view]()}</main></div></div>`;}
-const heading=(title,subtitle='')=>`<div class="page-heading"><p class="eyebrow">ZENITHADS / ${esc(title)}</p><h1>${title}</h1>${subtitle?`<p>${subtitle}</p>`:''}</div>`;
-const empty=text=>`<div class="empty">${text}</div>`;
-const views={
- overview:()=>`${heading('Tu centro de trabajo','Datos de esta organización. Ninguna métrica de rendimiento simulada.')}<div class="stats">${[['Marcas',values(state.org.brands).length],['Campañas',values(state.org.campaigns).length],['Trabajos',values(state.org.generation_jobs).length],['Créditos disponibles',state.org.creditBalance]].map(([label,value])=>`<article><span>${label}</span><strong>${value}</strong></article>`).join('')}</div><div class="two-col"><section class="panel"><h2>Plan y capacidades</h2><p>${esc(state.org.planDefinition.label)}</p><p>Estado: ${esc(state.org.subscription.status)}. Los límites son de prueba, no una oferta comercial.</p><p>Proveedor: <strong>${esc(state.health?.ai||'sin configurar')}</strong></p>${button('Crear tu marca','go-brands')}</section><section class="panel"><h2>Del brief al resultado</h2><ol><li>Define marca y campaña.</li><li>Guarda un brief concreto.</li><li>Genera copy y revisa las advertencias.</li><li>Exporta tus activos.</li></ol><p class="muted">IA real requiere credencial y aprobación de gasto. Vídeo y voz aún no disponibles.</p></section></div>`,
- brands:()=>{const b=state.editBrand?state.org.brands[state.editBrand]:{};return `${heading('Marcas','El contexto que acompañará cada solicitud de generación.')}<div class="record-grid">${values(state.org.brands).map(b=>`<article class="panel"><h2>${esc(b.name)}</h2><p>${esc(b.description)}</p><p>${esc(b.sector)} · ${esc(b.language)}</p>${button('Editar marca','edit-brand',`data-id="${b.id}"`)}</article>`).join('')||empty('Todavía no hay marcas.')}</div><section class="panel"><h2>${state.editBrand?'Editar':'Crear'} perfil de marca</h2><form id="brand-form"><div class="form-grid">${field('name','Nombre',b?.name,'text',true)}${field('sector','Sector',b?.sector)}${area('description','Descripción',b?.description)}${area('audience','Público',b?.audience)}${field('tone','Tono',b?.tone)}${select('language','Idioma',['es','en','pt','fr'].map(x=>`<option ${x===b?.language?'selected':''}>${x}</option>`).join(''))}${area('preferredWords','Palabras preferidas (una por línea)',b?.preferredWords)}${area('forbiddenWords','Palabras prohibidas',b?.forbiddenWords)}${area('allowedClaims','Claims permitidos',b?.allowedClaims)}${area('sensitiveClaims','Claims sensibles',b?.sensitiveClaims)}${area('colors','Colores HEX (#112233)',b?.colors)}${area('logos','URLs HTTPS de logos (no se descargan)',b?.logos)}${area('productInfo','Información verificable de producto',b?.productInfo)}${area('urls','URLs de referencia',b?.urls)}${area('instructions','Instrucciones adicionales',b?.instructions)}</div>${submit('Guardar marca')}${state.editBrand?button('Cancelar edición','cancel-brand'):''}</form></section>`;},
- campaigns:()=>`${heading('Campañas')}<div class="record-grid">${values(state.org.campaigns).map(c=>`<article class="panel"><h2>${esc(c.name)}</h2><p>${esc(state.org.brands[c.brandId]?.name)} · ${esc(c.platform)} · ${esc(c.country)}</p></article>`).join('')||empty('Crea primero una marca.')}</div><form id="campaign-form" class="panel"><h2>Nueva campaña</h2><div class="form-grid">${field('name','Nombre','','text',true)}${select('brandId','Marca',options(values(state.org.brands)))}${area('objective','Objetivo')}${select('platform','Plataforma',['Meta','Google','TikTok','Otro'].map(x=>`<option>${x}</option>`).join(''))}${field('country','País ISO (ES, PT, FR…)','ES','text',true)}</div>${submit('Crear campaña')}</form>`,
- briefs:()=>`${heading('Briefs')}<div class="record-grid">${values(state.org.briefs).map(b=>`<article class="panel"><h2>${esc(b.title)}</h2><p>${esc(b.objective)}</p><p>${esc(b.format)}</p></article>`).join('')||empty('Todavía no hay briefs.')}</div><form id="brief-form" class="panel"><h2>Nuevo brief</h2><div class="form-grid">${select('campaignId','Campaña',options(values(state.org.campaigns)))}${field('title','Título','','text',true)}${area('objective','Objetivo y mensaje')}${area('offer','Oferta verificable')}${field('cta','Llamada a la acción')}${area('constraints','Restricciones')}${select('format','Formato',['1:1','4:5','9:16','16:9'].map(x=>`<option>${x}</option>`).join(''))}</div>${submit('Guardar brief')}</form>`,
- generate:()=>`${heading('Generador','Texto primero. Cada trabajo se guarda con su reserva y resultado.')}<div class="callout">${state.health?.ai==='mock'?'Proveedor MOCK: copy de plantilla e imagen de prueba, identificados como DEMO.':state.health?.ai==='disabled'?'IA desactivada: configura el proveedor y autoriza el gasto antes de generar.':'Proveedor configurado. Se aplican límites de presupuesto del servidor.'}</div><form id="generation-form" class="panel">${select('briefId','Brief',options(values(state.org.briefs),'title'))}${select('kind','Modalidad','<option value="copy">Copy publicitario</option><option value="image">Imagen</option>')}${select('copyAssetId','Copy de referencia (obligatorio para imagen)','<option value="">No aplica para texto</option>'+options(values(state.org.assets).filter(x=>x.kind==='copy')))}<p class="muted">Vídeo y voz: PRÓXIMAMENTE. Sin proveedor ni gastos activos.</p>${submit('Crear y ejecutar trabajo')}</form>`,
- jobs:()=>`${heading('Trabajos','Estado persistido; los costes inciertos no se reintentan automáticamente.')}<div class="record-grid">${values(state.org.generation_jobs).reverse().map(j=>`<article class="panel"><span class="badge">${j.demo?'DEMO · ':''}${esc(statuses[j.status]||j.status)}</span><h2>${esc(j.kind)}</h2><p>${esc(j.provider)} / ${esc(j.model)}</p><p>Reserva: ${j.reservedCredits} créditos · Intentos: ${j.attempts}</p>${j.error?`<p class="error">${esc(j.error.message)}</p>`:''}${j.status==='queued'?button('Ejecutar','run-job',`data-id="${j.id}"`):''}${j.status==='failed'?button('Reintentar de forma segura','retry-job',`data-id="${j.id}"`):''}${j.status==='running'?button('Comprobar interrupción (>2 min)','recover-job',`data-id="${j.id}"`):''}</article>`).join('')||empty('Todavía no hay trabajos.')}</div>`,
- assets:()=>`${heading('Activos y resultados','Los avisos Guardian requieren revisión; no son una garantía legal.')}<div class="record-grid">${values(state.org.assets).reverse().map(a=>`<article class="panel asset"><span class="badge">${a.demo?'DEMO · ':''}${esc(a.kind)}</span><h2>${esc(a.name)}</h2>${a.content?`<pre>${esc(a.content)}</pre>`:'<p>Archivo de imagen disponible para descarga.</p>'}${a.reviewRequired?'<p class="callout">Revisión requerida antes de publicar.</p>':''}${a.guardian?`<details><summary>Brand Guardian: ${a.guardian.issues.length} hallazgos</summary>${renderIssues(a.guardian.issues)}${a.guardian.review.map(x=>`<p>${esc(x.rule)}: ${esc(x.status)} · ${esc(x.expected)}</p>`).join('')}<p>${esc(a.guardian.disclaimer)}</p></details>`:''}${a.compliance?`<details><summary>Compliance Guardian: ${a.compliance.issues.length} riesgos</summary>${renderIssues(a.compliance.issues)}<p>${esc(a.compliance.disclaimer)}</p></details>`:''}${a.downloadable!==false?button('Descargar resultado','download',`data-id="${a.id}"`):'<p>Descarga bloqueada por moderación.</p>'}</article>`).join('')||empty('Todavía no hay activos.')}</div><form id="asset-form" class="panel"><h2>Guardar texto propio</h2>${field('name','Nombre','','text',true)}${area('content','Contenido')}${submit('Guardar activo')}</form>`,
- analytics:()=>`${heading('TII y ROI Index','Importación manual con trazabilidad. Sin conexión publicitaria ni predicciones inventadas.')}<section class="panel"><h2>Fuentes</h2><form id="source-form"><div class="form-grid">${field('name','Nombre de fuente','','text',true)}${field('platform','Plataforma','','text',true)}${area('evidence','Referencia del informe original')}</div>${submit('Registrar fuente manual')}</form></section><form id="metric-form" class="panel"><h2>Importar una fila de métricas</h2><div class="form-grid">${select('sourceId','Fuente',options(values(state.org.sources)))}${select('campaignId','Campaña',options(values(state.org.campaigns)))}${field('date','Fecha','','date',true)}${field('currency','Moneda ISO','EUR','text',true)}${['spend','impressions','clicks','conversions','revenue'].map((n,i)=>field(n,['Gasto','Impresiones','Clics','Conversiones','Ingresos'][i],'0','number',true)).join('')}${area('evidence','Evidencia de esta fila')}</div>${submit('Guardar métricas')}</form><div class="record-grid">${values(state.org.metrics).map(m=>`<article class="panel"><h2>${esc(m.date)} · ${esc(m.currency)}</h2><p>CPA: ${fmt(m.calculated.CPA)} · ROAS: ${fmt(m.calculated.ROAS)}</p><p>CTR: ${fmt(m.calculated.CTR)}% · CPC: ${fmt(m.calculated.CPC)}</p><p>ROI Index EXPERIMENTAL: ${fmt(m.roiIndex.value)}%</p><p class="muted">${esc(m.roiIndex.limitations)}</p><p>${esc(m.verification)}</p></article>`).join('')}</div>`,
- trends:()=>`${heading('Trends Pulse','Registro de señales con fuente. No se generan tendencias con IA.')}<div class="record-grid">${values(state.org.trends).map(t=>`<article class="panel"><h2>${esc(t.title)}</h2><p>${esc(t.evidence)}</p><p>${esc(t.platform)} · ${esc(t.market)} · ${esc(t.observedAt)}</p><p>Cobertura: ${esc(t.coverage)} · Confianza declarada: ${esc(t.confidence)}</p><a href="${esc(t.url)}" target="_blank" rel="noopener noreferrer">Ver fuente</a></article>`).join('')||empty('Sin señales registradas.')}</div><form id="trend-form" class="panel"><div class="form-grid">${field('title','Título','','text',true)}${select('sourceId','Fuente',options(values(state.org.sources)))}${field('url','URL HTTPS','','url',true)}${field('observedAt','Fecha observada','','datetime-local',true)}${field('market','Mercado','España','text',true)}${field('platform','Plataforma','','text',true)}${area('evidence','Evidencia concreta')}${area('coverage','Cobertura y límites')}${select('confidence','Confianza declarada',['baja','media','alta'].map(x=>`<option>${x}</option>`).join(''))}</div>${submit('Registrar señal')}</form>`,
- settings:()=>`${heading('Configuración')}<section class="panel"><h2>Identidad y organización</h2><p>UID: <code>${esc(state.user.uid)}</code></p><p>Organización: <code>${state.org.id}</code></p><p>${esc(state.org.planDefinition.label)}</p>${state.orgs.length>1?select('organization','Cambiar workspace',options(state.orgs,'name',state.org.id)):''}<p>La sesión Firebase se conserva por pestaña. No se guardan claves privadas en el navegador.</p></section>${state.org.members[state.user.uid]?.role==='owner'?`<form id="member-form" class="panel"><h2>Añadir miembro existente</h2><p>Usa el UID exacto del usuario. Compruébalo antes; no se envían invitaciones.</p>${field('uid','Firebase UID','','text',true)}${select('role','Rol','<option value="viewer">Solo lectura</option><option value="editor">Editor</option>')}${submit('Guardar miembro')}</form><section class="panel"><h2>Facturación · SOLO TEST</h2><p>Referencias históricas; no constituyen oferta definitiva. Sin cobros reales.</p><form id="checkout-form">${select('plan','Plan de prueba',[19,49,149,299].map(x=>`<option value="historical${x}">${x} € · TEST</option>`).join(''))}${submit('Abrir Checkout TEST')}</form>${button('Portal TEST','portal')}</section>`:''}<section class="panel"><h2>Consumo registrado</h2><div class="table-wrap"><table><caption>Ledger de esta organización</caption><thead><tr><th>Operación</th><th>Estado</th><th>Créditos</th><th>Coste USD</th></tr></thead><tbody>${state.org.usage.map(u=>`<tr><td>${esc(u.operation)}</td><td>${esc(u.status)}</td><td>${u.creditsConsumed} / reserva ${u.reservedCredits}</td><td>${u.costActualUSD===null?'Pendiente':u.costActualUSD}</td></tr>`).join('')}</tbody></table></div></section>`
+import { configureAuth, observe, loginGoogle, loginEmail, logout, resetPassword } from './auth.js';
+const root = document.querySelector('#app');
+const state = {
+  user: null,
+  token: null,
+  org: null,
+  orgs: [],
+  view: 'overview',
+  busy: false,
+  notice: '',
+  error: '',
+  health: null,
+  editBrand: null,
 };
-function fmt(n){return n===null?'No calculable':Number(n).toFixed(2);}
-function renderIssues(issues){return issues.length?issues.map(i=>`<div class="issue"><strong>${esc(i.severity)} · ${esc(i.rule)}</strong><p>Evidencia: ${esc(i.evidence)}</p><p>Ubicación: ${i.location?`${i.location.start}–${i.location.end}`:'revisión contextual'}</p><p>Recomendación: ${esc(i.recommendation)}</p></div>`).join(''):'<p>Sin coincidencias en las reglas básicas. No equivale a aprobación.</p>';}
-function render(){root.innerHTML=`<a class="skip" href="#main">Saltar al contenido</a>${state.user?shell():landing()}${footer()}<div id="feedback" class="feedback ${state.error?'error':''}" role="${state.error?'alert':'status'}" aria-live="polite">${esc(state.error||state.notice)}</div>${state.busy?'<div class="busy" role="status">Procesando…</div>':''}`;root.querySelectorAll('button').forEach(b=>b.disabled=state.busy);root.setAttribute('aria-busy',String(state.busy));}
-async function task(fn){if(state.busy)return;state.busy=true;state.error='';state.notice='';render();try{await fn();}catch(e){state.error=e.message;}finally{state.busy=false;render();if(state.error)document.querySelector('#feedback')?.scrollIntoView({block:'nearest'});}}
-root.addEventListener('click',event=>{const target=event.target.closest('[data-view],[data-action],[data-legal]');if(!target)return;const {view,action,legal,id,user}=target.dataset;if(legal){event.preventDefault();showLegal(legal);return;}if(view){state.view=view;state.error='';render();document.querySelector('#main')?.focus();return;}task(async()=>{if(action==='google')await loginGoogle();if(action==='demo'){state.token=user;state.user={uid:user,email:user+'@example.invalid'};await refresh();}if(action==='logout'){await logout();state.user=null;state.token=null;state.org=null;state.view='overview';}if(action==='go-brands')state.view='brands';if(action==='edit-brand'){state.editBrand=id;state.view='brands';}if(action==='cancel-brand')state.editBrand=null;if(action==='reset'){const email=document.querySelector('[name=email]')?.value;if(!email)throw new Error('Introduce tu email');await resetPassword(email);state.notice='Si la cuenta existe, recibirás instrucciones.';}if(action==='run-job'){await api(orgPath(`/jobs/${id}/run`),{method:'POST',data:{}});await refresh();}if(action==='retry-job'){await api(orgPath(`/jobs/${id}/retry`),{method:'POST',data:{}});await refresh();}if(action==='recover-job'){await api(orgPath(`/jobs/${id}/recover`),{method:'POST',data:{}});await refresh();}if(action==='download'){const blob=await api(orgPath(`/assets/${id}/download`),{blob:true}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`zenit-${id}.${blob.type.includes('png')?'png':blob.type.includes('svg')?'svg':'txt'}`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}if(action==='portal'){const d=await api(orgPath('/billing/portal'),{method:'POST',data:{}});navigateStripe(d.url);}});});
-function navigateStripe(url){const u=new URL(url);if(u.protocol!=='https:'||!['checkout.stripe.com','billing.stripe.com'].includes(u.hostname))throw new Error('URL de pago rechazada');location.assign(url);}
-root.addEventListener('change',event=>{if(event.target.name==='organization')task(async()=>{state.org=await api(`/api/orgs/${event.target.value}`);});});
-root.addEventListener('submit',event=>{event.preventDefault();const form=event.target,data=Object.fromEntries(new FormData(form)),formId=form.id;task(async()=>{
- if(formId==='email-login'){await loginEmail(data.email,data.password);return;}
- if(formId==='onboarding')state.org=await api('/api/bootstrap',{method:'POST',data});
- if(formId==='brand-form'){for(const k of ['preferredWords','forbiddenWords','allowedClaims','sensitiveClaims','colors','logos','urls'])data[k]=list(data[k]);await api(orgPath('/brands'+(state.editBrand?'/'+state.editBrand:'')),{method:state.editBrand?'PATCH':'POST',data});state.editBrand=null;}
- if(formId==='campaign-form')await api(orgPath('/campaigns'),{method:'POST',data});
- if(formId==='brief-form')await api(orgPath('/briefs'),{method:'POST',data});
- if(formId==='generation-form'){if(data.kind==='copy'||!data.copyAssetId)delete data.copyAssetId;const job=await api(orgPath('/jobs'),{method:'POST',data,key:crypto.randomUUID()});await api(orgPath(`/jobs/${job.id}/run`),{method:'POST',data:{}});state.view='jobs';}
- if(formId==='asset-form')await api(orgPath('/assets'),{method:'POST',data:{...data,mime:'text/plain'}});
- if(formId==='source-form')await api(orgPath('/sources'),{method:'POST',data:{...data,type:'manual'}});
- if(formId==='metric-form'){for(const k of ['spend','impressions','clicks','conversions','revenue'])data[k]=Number(data[k]);await api(orgPath('/metrics'),{method:'POST',data});}
- if(formId==='trend-form'){data.observedAt=new Date(data.observedAt).toISOString();await api(orgPath('/trends'),{method:'POST',data});}
- if(formId==='member-form')await api(orgPath('/members'),{method:'POST',data});
- if(formId==='checkout-form'){const d=await api(orgPath('/billing/checkout'),{method:'POST',data});navigateStripe(d.url);}
- await refresh();state.notice='Guardado correctamente';
- });});
-function showLegal(title){const dialog=document.createElement('dialog');dialog.innerHTML=`<h2>${esc(title)}</h2><strong class="badge">BORRADOR · NO APTO PARA LANZAMIENTO COMERCIAL</strong><p>Documento pendiente de revisión profesional y datos confirmados del titular.</p><p>${esc(legalTexts[title])}</p><p>No se ha activado analítica publicitaria ni cookies de marketing. La autenticación Firebase usa almacenamiento de sesión cuando está configurada. El servidor conserva los datos de workspace y auditoría.</p><button>Cerrar</button>`;dialog.querySelector('button').onclick=()=>dialog.close();dialog.addEventListener('close',()=>dialog.remove());document.body.append(dialog);dialog.showModal();}
-const legalTexts={'Aviso Legal':'Completar identidad, contacto profesional y datos exigibles. No se reproducen domicilio ni documento de identidad del historial Git.','Privacidad':'Definir responsable, finalidades, bases jurídicas, conservación, derechos y encargados. Firebase, alojamiento y proveedores IA deben figurar según la configuración real.','Cookies':'Inventario: sesión Firebase en almacenamiento web; preferencias y datos de prueba únicamente locales. Revisar recursos externos y almacenamiento antes de activar servicios. No se añade un consentimiento ficticio.','Términos':'Definir alcance, límites, suscripciones, cancelación, reembolsos y responsabilidades. Precios de prueba no son oferta comercial.','IA y contenido':'Resultados requieren revisión humana. Revisar licencias, datos de entrada, imágenes, voces, retención y derechos de terceros. Guardian no garantiza cumplimiento.','Partners':'Programa inactivo. Referencia histórica del 20%; actividad, atribución, impuestos y devoluciones pendientes de contrato. Sin pagos.'};
-const configureAvailable=!!configureAuth();
+const esc = (value) =>
+  String(value ?? '').replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+  );
+const values = (obj) => Object.values(obj || {});
+const list = (value) =>
+  String(value || '')
+    .split(/\n|,/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+const statuses = {
+  queued: 'En cola',
+  running: 'En curso',
+  completed: 'Completado',
+  review_required: 'Revisión requerida',
+  failed: 'Error',
+  uncertain: 'Conciliación pendiente',
+};
+const options = (rows, label = 'name', selected = '') =>
+  rows
+    .map(
+      (x) =>
+        `<option value="${esc(x.id)}" ${x.id === selected ? 'selected' : ''}>${esc(x[label])}</option>`,
+    )
+    .join('');
+const field = (name, label, value = '', type = 'text', required = false) =>
+  `<label>${label}<input name="${name}" type="${type}" ${type === 'number' ? 'step="any" min="0"' : ''} value="${esc(value)}" ${required ? 'required' : ''} maxlength="2000"></label>`;
+const area = (name, label, value = '') =>
+  `<label>${label}<textarea name="${name}" rows="3" maxlength="6000">${esc(Array.isArray(value) ? value.join('\n') : value)}</textarea></label>`;
+const select = (name, label, opts) =>
+  `<label>${label}<select name="${name}" required>${opts}</select></label>`;
+const button = (text, action, extra = '') =>
+  `<button type="button" data-action="${action}" ${extra}>${text}</button>`;
+const submit = (text) => `<button type="submit">${text}</button>`;
+const orgPath = (suffix) => `/api/orgs/${state.org.id}${suffix}`;
+async function api(path, { method = 'GET', data, key, blob = false } = {}) {
+  const token = state.user?.getIdToken ? await state.user.getIdToken() : state.token;
+  const r = await fetch(path, {
+    method,
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(method !== 'GET' ? { 'Content-Type': 'application/json' } : {}),
+      ...(key ? { 'Idempotency-Key': key } : {}),
+    },
+    ...(data ? { body: JSON.stringify(data) } : {}),
+  });
+  if (!r.ok) {
+    let d;
+    try {
+      d = await r.json();
+    } catch {
+      throw new Error('El servidor no respondió correctamente');
+    }
+    throw new Error(d.error?.message || 'Error de servicio');
+  }
+  return blob ? r.blob() : r.json();
+}
+async function refresh() {
+  const me = await api('/api/me');
+  state.isSuperadmin = me.user.superadmin;
+  state.orgs = me.organizations;
+  const current =
+    (state.isSuperadmin && state.org ? state.org : null) ||
+    state.orgs.find((o) => o.id === state.org?.id) ||
+    state.orgs[0];
+  state.org = current ? await api(`/api/orgs/${current.id}`) : null;
+}
+function footer() {
+  return `<footer><span>© 2026 ZenithAds · Asturias · Piloto en desarrollo</span><nav aria-label="Información legal">${['Aviso Legal', 'Privacidad', 'Cookies', 'Términos', 'IA y contenido', 'Partners'].map((x) => `<a href="#legal-${encodeURIComponent(x)}" data-legal="${esc(x)}">${x}</a>`).join('')}</nav></footer>`;
+}
+function landing() {
+  return `<main id="main" class="landing"><div class="brand-word">ZENITH<span>ADS</span></div>${experience()}<div class="hero login-zone"><section class="login-card" aria-labelledby="login-title"><h2 id="login-title">Accede a tu espacio</h2><p>Acceso privado. La generación de pago permanece desactivada.</p>${configureAvailable ? button('Continuar con Google', 'google') : '<p class="callout">Firebase pendiente de configurar en este entorno. No se simula un inicio de sesión real.</p>'}${configureAvailable && import.meta.env.VITE_EMAIL_AUTH_ENABLED === 'true' ? `<form id="email-login">${field('email', 'Email', '', 'email', true)}${field('password', 'Contraseña', '', 'password', true)}${submit('Entrar con email')}${button('Restablecer contraseña', 'reset')}</form>` : ''}${state.health?.demo ? `<div class="demo"><strong>DEMO LOCAL · sin Firebase ni IA real</strong><p>Datos de prueba persistidos únicamente en el servidor local.</p>${button('Entrar como Alice (DEMO)', 'demo', 'data-user="demo-alice"')}${button('Entrar como Bob (DEMO)', 'demo', 'data-user="demo-bob"')}</div>` : ''}</section></div><section class="public-info"><h2>Construido alrededor de tu marca</h2><p>Organiza perfiles, campañas y briefs. Revisa riesgos concretos antes de publicar. Las funciones no conectadas se identifican expresamente y no se presentan como resultados reales.</p></section></main>`;
+}
+const navItems = [
+  ['overview', 'Resumen'],
+  ['brands', 'Marcas'],
+  ['campaigns', 'Campañas'],
+  ['briefs', 'Briefs'],
+  ['generate', 'Generador'],
+  ['jobs', 'Trabajos'],
+  ['assets', 'Activos'],
+  ['analytics', 'TII / ROI'],
+  ['trends', 'Trends Pulse'],
+  ['settings', 'Configuración'],
+  ['admin', 'Administración'],
+];
+function shell() {
+  if (!state.org)
+    return `<main id="main" class="onboarding"><h1>Tu primer workspace</h1><p>Usuario: ${esc(state.user.email || state.user.uid)}</p><form id="onboarding">${field('name', 'Nombre de organización', '', 'text', true)}${submit('Crear workspace de prueba')}</form>${button('Cerrar sesión', 'logout')}</main>`;
+  return `<div class="workspace"><aside><a class="brand-word" href="#">ZENITH<span>ADS</span></a><p class="muted">INFRAESTRUCTURA DE CONTENIDO</p><nav aria-label="Panel">${navItems
+    .filter(([key]) => key !== 'admin' || state.isSuperadmin)
+    .map(
+      ([key, name]) =>
+        `<button data-view="${key}" aria-current="${state.view === key ? 'page' : 'false'}">${name}</button>`,
+    )
+    .join(
+      '',
+    )}</nav><p class="sidebar-note">Sin cifras inventadas.<br>Sin publicación automática.</p></aside><div class="workspace-body"><header><div><span class="eyebrow">ESPACIO DE TRABAJO</span><strong>${esc(state.org.name)}</strong></div><div class="user-menu"><span>${esc(state.user.email || state.user.uid)}<small>${esc(state.org.currentRole || state.org.members[state.user.uid]?.role || 'miembro')}</small></span>${button('Cerrar sesión', 'logout')}</div></header>${state.health?.demo ? '<div class="demo ribbon">DEMO LOCAL · autenticación y proveedor simulados · sin cargos</div>' : ''}<main id="main" tabindex="-1">${views[state.view]()}</main></div></div>`;
+}
+const heading = (title, subtitle = '') =>
+  `<div class="page-heading"><p class="eyebrow">ZENITHADS / ${esc(title)}</p><h1>${title}</h1>${subtitle ? `<p>${subtitle}</p>` : ''}</div>`;
+const empty = (text) => `<div class="empty">${text}</div>`;
+const views = {
+  overview: () =>
+    `${heading('Tu centro de trabajo', 'Datos de esta organización. Ninguna métrica de rendimiento simulada.')}<div class="stats">${[
+      ['Marcas', values(state.org.brands).length],
+      ['Campañas', values(state.org.campaigns).length],
+      ['Trabajos', values(state.org.generation_jobs).length],
+      ['Créditos disponibles', state.org.creditBalance],
+    ]
+      .map(([label, value]) => `<article><span>${label}</span><strong>${value}</strong></article>`)
+      .join(
+        '',
+      )}</div><div class="two-col"><section class="panel"><h2>Plan y capacidades</h2><p>${esc(state.org.planDefinition.label)}</p><p>Estado: ${esc(state.org.subscription.status)}. Los límites son de prueba, no una oferta comercial.</p><p>Proveedor: <strong>${esc(state.health?.ai || 'sin configurar')}</strong></p>${button('Crear tu marca', 'go-brands')}</section><section class="panel"><h2>Del brief al resultado</h2><ol><li>Define marca y campaña.</li><li>Guarda un brief concreto.</li><li>Genera copy y revisa las advertencias.</li><li>Exporta tus activos.</li></ol><p class="muted">IA real requiere credencial y aprobación de gasto. Vídeo y voz aún no disponibles.</p></section></div>`,
+  brands: () => {
+    const b = state.editBrand ? state.org.brands[state.editBrand] : {};
+    return `${heading('Marcas', 'El contexto que acompañará cada solicitud de generación.')}<div class="record-grid">${
+      values(state.org.brands)
+        .map(
+          (b) =>
+            `<article class="panel"><h2>${esc(b.name)}</h2><p>${esc(b.description)}</p><p>${esc(b.sector)} · ${esc(b.language)}</p>${button('Editar marca', 'edit-brand', `data-id="${b.id}"`)}</article>`,
+        )
+        .join('') || empty('Todavía no hay marcas.')
+    }</div><section class="panel"><h2>${state.editBrand ? 'Editar' : 'Crear'} perfil de marca</h2><form id="brand-form"><div class="form-grid">${field('name', 'Nombre', b?.name, 'text', true)}${field('sector', 'Sector', b?.sector)}${area('description', 'Descripción', b?.description)}${area('audience', 'Público', b?.audience)}${field('tone', 'Tono', b?.tone)}${select('language', 'Idioma', ['es', 'en', 'pt', 'fr'].map((x) => `<option ${x === b?.language ? 'selected' : ''}>${x}</option>`).join(''))}${area('preferredWords', 'Palabras preferidas (una por línea)', b?.preferredWords)}${area('forbiddenWords', 'Palabras prohibidas', b?.forbiddenWords)}${area('allowedClaims', 'Claims permitidos', b?.allowedClaims)}${area('sensitiveClaims', 'Claims sensibles', b?.sensitiveClaims)}${area('colors', 'Colores HEX (#112233)', b?.colors)}${area('logos', 'URLs HTTPS de logos (no se descargan)', b?.logos)}${area('productInfo', 'Información verificable de producto', b?.productInfo)}${area('urls', 'URLs de referencia', b?.urls)}${area('instructions', 'Instrucciones adicionales', b?.instructions)}</div>${submit('Guardar marca')}${state.editBrand ? button('Cancelar edición', 'cancel-brand') : ''}</form></section>`;
+  },
+  campaigns: () =>
+    `${heading('Campañas')}<div class="record-grid">${
+      values(state.org.campaigns)
+        .map(
+          (c) =>
+            `<article class="panel"><h2>${esc(c.name)}</h2><p>${esc(state.org.brands[c.brandId]?.name)} · ${esc(c.platform)} · ${esc(c.country)}</p></article>`,
+        )
+        .join('') || empty('Crea primero una marca.')
+    }</div><form id="campaign-form" class="panel"><h2>Nueva campaña</h2><div class="form-grid">${field('name', 'Nombre', '', 'text', true)}${select('brandId', 'Marca', options(values(state.org.brands)))}${area('objective', 'Objetivo')}${select('platform', 'Plataforma', ['Meta', 'Google', 'TikTok', 'Otro'].map((x) => `<option>${x}</option>`).join(''))}${field('country', 'País ISO (ES, PT, FR…)', 'ES', 'text', true)}</div>${submit('Crear campaña')}</form>`,
+  briefs: () =>
+    `${heading('Briefs')}<div class="record-grid">${
+      values(state.org.briefs)
+        .map(
+          (b) =>
+            `<article class="panel"><h2>${esc(b.title)}</h2><p>${esc(b.objective)}</p><p>${esc(b.format)}</p></article>`,
+        )
+        .join('') || empty('Todavía no hay briefs.')
+    }</div><form id="brief-form" class="panel"><h2>Nuevo brief</h2><div class="form-grid">${select('campaignId', 'Campaña', options(values(state.org.campaigns)))}${field('title', 'Título', '', 'text', true)}${area('objective', 'Objetivo y mensaje')}${area('offer', 'Oferta verificable')}${field('cta', 'Llamada a la acción')}${area('constraints', 'Restricciones')}${select('format', 'Formato', ['1:1', '4:5', '9:16', '16:9'].map((x) => `<option>${x}</option>`).join(''))}</div>${submit('Guardar brief')}</form>`,
+  generate: () =>
+    `${heading('Generador', 'Texto primero. Cada trabajo se guarda con su reserva y resultado.')}<div class="callout">${state.health?.ai === 'mock' ? 'Proveedor MOCK: copy de plantilla e imagen de prueba, identificados como DEMO.' : state.health?.ai === 'disabled' ? 'IA desactivada: configura el proveedor y autoriza el gasto antes de generar.' : 'Proveedor configurado. Se aplican límites de presupuesto del servidor.'}</div><form id="generation-form" class="panel">${select('briefId', 'Brief', options(values(state.org.briefs), 'title'))}${select('kind', 'Modalidad', '<option value="copy">Copy publicitario</option><option value="image">Imagen</option>')}${select('copyAssetId', 'Copy de referencia (obligatorio para imagen)', '<option value="">No aplica para texto</option>' + options(values(state.org.assets).filter((x) => x.kind === 'copy')))}<p class="muted">Vídeo y voz: PRÓXIMAMENTE. Sin proveedor ni gastos activos.</p>${submit('Crear y ejecutar trabajo')}</form>`,
+  jobs: () =>
+    `${heading('Trabajos', 'Estado persistido; los costes inciertos no se reintentan automáticamente.')}<div class="record-grid">${
+      values(state.org.generation_jobs)
+        .reverse()
+        .map(
+          (j) =>
+            `<article class="panel"><span class="badge">${j.demo ? 'DEMO · ' : ''}${esc(statuses[j.status] || j.status)}</span><h2>${esc(j.kind)}</h2><p>${esc(j.provider)} / ${esc(j.model)}</p><p>Reserva: ${j.reservedCredits} créditos · Intentos: ${j.attempts}</p>${j.error ? `<p class="error">${esc(j.error.message)}</p>` : ''}${j.status === 'queued' ? button('Ejecutar', 'run-job', `data-id="${j.id}"`) : ''}${j.status === 'failed' ? button('Reintentar de forma segura', 'retry-job', `data-id="${j.id}"`) : ''}${j.status === 'running' ? button('Comprobar interrupción (>2 min)', 'recover-job', `data-id="${j.id}"`) : ''}</article>`,
+        )
+        .join('') || empty('Todavía no hay trabajos.')
+    }</div>`,
+  assets: () =>
+    `${heading('Activos y resultados', 'Los avisos Guardian requieren revisión; no son una garantía legal.')}<div class="record-grid">${
+      values(state.org.assets)
+        .reverse()
+        .map(
+          (a) =>
+            `<article class="panel asset"><span class="badge">${a.demo ? 'DEMO · ' : ''}${esc(a.kind)}</span><h2>${esc(a.name)}</h2>${a.content ? `<pre>${esc(a.content)}</pre>` : '<p>Archivo de imagen disponible para descarga.</p>'}${a.reviewRequired ? '<p class="callout">Revisión requerida antes de publicar.</p>' : ''}${a.guardian ? `<details><summary>Brand Guardian: ${a.guardian.issues.length} hallazgos</summary>${renderIssues(a.guardian.issues)}${a.guardian.review.map((x) => `<p>${esc(x.rule)}: ${esc(x.status)} · ${esc(x.expected)}</p>`).join('')}<p>${esc(a.guardian.disclaimer)}</p></details>` : ''}${a.compliance ? `<details><summary>Compliance Guardian: ${a.compliance.issues.length} riesgos</summary>${renderIssues(a.compliance.issues)}<p>${esc(a.compliance.disclaimer)}</p></details>` : ''}${a.humanReview ? `<p>Revisión humana: ${esc(a.humanReview.decision)}</p>` : ''}${button('Marcar revisado', 'review-asset', `data-id="${a.id}"`)}${a.content ? button('Copiar texto', 'copy-asset', `data-id="${a.id}"`) : ''}${a.downloadable !== false ? button('Descargar resultado', 'download', `data-id="${a.id}"`) : '<p>Descarga bloqueada por moderación.</p>'}</article>`,
+        )
+        .join('') || empty('Todavía no hay activos.')
+    }</div><form id="asset-form" class="panel"><h2>Guardar texto propio</h2>${field('name', 'Nombre', '', 'text', true)}${area('content', 'Contenido')}${submit('Guardar activo')}</form>`,
+  analytics: () =>
+    `${heading('TII y ROI Index', 'Importación manual con trazabilidad. Sin conexión publicitaria ni predicciones inventadas.')}<section class="panel"><h2>Fuentes</h2><form id="source-form"><div class="form-grid">${field('name', 'Nombre de fuente', '', 'text', true)}${field('platform', 'Plataforma', '', 'text', true)}${area('evidence', 'Referencia del informe original')}</div>${submit('Registrar fuente manual')}</form></section><form id="metric-form" class="panel"><h2>Importar una fila de métricas</h2><div class="form-grid">${select('sourceId', 'Fuente', options(values(state.org.sources)))}${select('campaignId', 'Campaña', options(values(state.org.campaigns)))}${field('date', 'Fecha', '', 'date', true)}${field('currency', 'Moneda ISO', 'EUR', 'text', true)}${['spend', 'impressions', 'clicks', 'conversions', 'revenue'].map((n, i) => field(n, ['Gasto', 'Impresiones', 'Clics', 'Conversiones', 'Ingresos'][i], '0', 'number', true)).join('')}${area('evidence', 'Evidencia de esta fila')}</div>${submit('Guardar métricas')}</form><div class="record-grid">${values(
+      state.org.metrics,
+    )
+      .map(
+        (m) =>
+          `<article class="panel"><h2>${esc(m.date)} · ${esc(m.currency)}</h2><p>CPA: ${fmt(m.calculated.CPA)} · ROAS: ${fmt(m.calculated.ROAS)}</p><p>CTR: ${fmt(m.calculated.CTR)}% · CPC: ${fmt(m.calculated.CPC)}</p><p>ROI Index EXPERIMENTAL: ${fmt(m.roiIndex.value)}%</p><p class="muted">${esc(m.roiIndex.limitations)}</p><p>${esc(m.verification)}</p></article>`,
+      )
+      .join('')}</div>`,
+  trends: () =>
+    `${heading('Trends Pulse', 'Registro de señales con fuente. No se generan tendencias con IA.')}<div class="record-grid">${
+      values(state.org.trends)
+        .map(
+          (t) =>
+            `<article class="panel"><h2>${esc(t.title)}</h2><p>${esc(t.evidence)}</p><p>${esc(t.platform)} · ${esc(t.market)} · ${esc(t.observedAt)}</p><p>Cobertura: ${esc(t.coverage)} · Confianza declarada: ${esc(t.confidence)}</p><a href="${esc(t.url)}" target="_blank" rel="noopener noreferrer">Ver fuente</a></article>`,
+        )
+        .join('') || empty('Sin señales registradas.')
+    }</div><form id="trend-form" class="panel"><div class="form-grid">${field('title', 'Título', '', 'text', true)}${select('sourceId', 'Fuente', options(values(state.org.sources)))}${field('url', 'URL HTTPS', '', 'url', true)}${field('observedAt', 'Fecha observada', '', 'datetime-local', true)}${field('market', 'Mercado', 'España', 'text', true)}${field('platform', 'Plataforma', '', 'text', true)}${area('evidence', 'Evidencia concreta')}${area('coverage', 'Cobertura y límites')}${select('confidence', 'Confianza declarada', ['baja', 'media', 'alta'].map((x) => `<option>${x}</option>`).join(''))}</div>${submit('Registrar señal')}</form>`,
+  admin: () =>
+    `${heading('Administración global', 'Acceso verificado en servidor. Pruebas sin débito comercial; coste del proveedor siempre registrado.')}<section class="panel"><h2>Organizaciones</h2>${button('Actualizar inventario global', 'admin-list')}<div class="record-grid">${(state.adminOrgs || []).map((o) => `<article><h3>${esc(o.name)}</h3><p>${esc(o.plan)} · ${o.memberCount} miembros · ${o.operations} operaciones</p><p>Coste conocido: ${fmt(o.costKnownUSD)} USD · pendiente: ${fmt(o.costPendingUSD)} USD</p>${button('Inspeccionar workspace', 'admin-open', `data-id="${o.id}"`)}</article>`).join('')}</div></section>`,
+  settings: () =>
+    `${heading('Configuración')}<section class="panel"><h2>Identidad y organización</h2><p>UID: <code>${esc(state.user.uid)}</code></p><p>Organización: <code>${state.org.id}</code></p><p>${esc(state.org.planDefinition.label)}</p>${state.orgs.length > 1 ? select('organization', 'Cambiar workspace', options(state.orgs, 'name', state.org.id)) : ''}<p>La sesión Firebase se conserva por pestaña. No se guardan claves privadas en el navegador.</p></section>${['owner', 'superadmin'].includes(state.org.currentRole) ? `<form id="member-form" class="panel"><h2>Añadir miembro existente</h2><p>Usa el UID exacto del usuario. Compruébalo antes; no se envían invitaciones.</p>${field('uid', 'Firebase UID', '', 'text', true)}${select('role', 'Rol', '<option value="viewer">Solo lectura</option><option value="editor">Editor</option>')}${submit('Guardar miembro')}</form><section class="panel"><h2>Facturación · SOLO TEST</h2><p>Referencias históricas; no constituyen oferta definitiva. Sin cobros reales.</p><form id="checkout-form">${select('plan', 'Plan de prueba', [19, 49, 149, 299].map((x) => `<option value="historical${x}">${x} € · TEST</option>`).join(''))}${submit('Abrir Checkout TEST')}</form>${button('Portal TEST', 'portal')}</section>` : ''}<section class="panel"><h2>Consumo registrado</h2><div class="table-wrap"><table><caption>Ledger de esta organización</caption><thead><tr><th>Operación</th><th>Estado</th><th>Créditos</th><th>Coste USD</th></tr></thead><tbody>${state.org.usage.map((u) => `<tr><td>${esc(u.operation)}</td><td>${esc(u.status)}</td><td>${u.creditsConsumed} / reserva ${u.reservedCredits}</td><td>${u.costActualUSD === null ? 'Pendiente' : u.costActualUSD}</td></tr>`).join('')}</tbody></table></div></section>`,
+};
+function fmt(n) {
+  return n === null ? 'No calculable' : Number(n).toFixed(2);
+}
+function renderIssues(issues) {
+  return issues.length
+    ? issues
+        .map(
+          (i) =>
+            `<div class="issue"><strong>${esc(i.severity)} · ${esc(i.rule)}</strong><p>Evidencia: ${esc(i.evidence)}</p><p>Ubicación: ${i.location ? `${i.location.start}–${i.location.end}` : 'revisión contextual'}</p><p>Recomendación: ${esc(i.recommendation)}</p></div>`,
+        )
+        .join('')
+    : '<p>Sin coincidencias en las reglas básicas. No equivale a aprobación.</p>';
+}
+function render() {
+  root.innerHTML = `<a class="skip" href="#main">Saltar al contenido</a>${state.user ? shell() : landing()}${footer()}<div id="feedback" class="feedback ${state.error ? 'error' : ''}" role="${state.error ? 'alert' : 'status'}" aria-live="polite">${esc(state.error || state.notice)}</div>${state.busy ? '<div class="busy" role="status">Procesando…</div>' : ''}`;
+  root.querySelectorAll('button').forEach((b) => (b.disabled = state.busy));
+  root.setAttribute('aria-busy', String(state.busy));
+}
+async function task(fn) {
+  if (state.busy) return;
+  const drafts = [...root.querySelectorAll('form')].map((form) => ({
+    id: form.id,
+    fields: [...form.elements]
+      .filter((e) => e.name && e.type !== 'password')
+      .map((e) => [e.name, e.value]),
+  }));
+  state.busy = true;
+  state.error = '';
+  state.notice = '';
+  render();
+  try {
+    await fn();
+  } catch (e) {
+    state.error = e.message;
+  } finally {
+    state.busy = false;
+    render();
+    if (state.error) {
+      for (const draft of drafts) {
+        const form = document.getElementById(draft.id);
+        for (const [name, value] of draft.fields)
+          if (form?.elements.namedItem(name)) form.elements.namedItem(name).value = value;
+      }
+      document.querySelector('#feedback')?.scrollIntoView({ block: 'nearest' });
+    }
+  }
+}
+root.addEventListener('click', (event) => {
+  const target = event.target.closest('[data-view],[data-action],[data-legal],[data-story]');
+  if (!target) return;
+  if (target.dataset.story) {
+    const data = story[target.dataset.story];
+    ['story-badge', 'story-title', 'story-body', 'story-evidence'].forEach(
+      (id, i) => (document.getElementById(id).textContent = data[i]),
+    );
+    root
+      .querySelectorAll('[data-story]')
+      .forEach((b) => b.setAttribute('aria-pressed', String(b === target)));
+    return;
+  }
+  const { view, action, legal, id, user } = target.dataset;
+  if (action === 'motion') {
+    const paused = document.documentElement.dataset.motion === 'paused';
+    document.documentElement.dataset.motion = paused ? 'running' : 'paused';
+    target.textContent = paused ? 'Pausar movimiento' : 'Activar movimiento';
+    return;
+  }
+  const resetEmail = document.querySelector('[name=email]')?.value;
+  if (legal) {
+    event.preventDefault();
+    showLegal(legal);
+    return;
+  }
+  if (view) {
+    state.view = view;
+    state.error = '';
+    render();
+    document.querySelector('#main')?.focus();
+    return;
+  }
+  task(async () => {
+    if (action === 'admin-list') state.adminOrgs = await api('/api/admin/organizations');
+    if (action === 'admin-open') {
+      state.org = await api('/api/orgs/' + id);
+      state.view = 'overview';
+    }
+    if (action === 'copy-asset') {
+      await navigator.clipboard.writeText(state.org.assets[id].content);
+      state.notice = 'Texto copiado';
+    }
+    if (action === 'review-asset') {
+      await api(orgPath(`/assets/${id}/review`), {
+        method: 'POST',
+        data: { decision: 'approved', note: 'Revisión humana desde el panel' },
+      });
+      await refresh();
+    }
+    if (action === 'google') await loginGoogle();
+    if (action === 'demo') {
+      state.token = user;
+      state.user = { uid: user, email: user + '@example.invalid' };
+      await refresh();
+    }
+    if (action === 'logout') {
+      await logout();
+      state.user = null;
+      state.token = null;
+      state.org = null;
+      state.view = 'overview';
+    }
+    if (action === 'go-brands') state.view = 'brands';
+    if (action === 'edit-brand') {
+      state.editBrand = id;
+      state.view = 'brands';
+    }
+    if (action === 'cancel-brand') state.editBrand = null;
+    if (action === 'reset') {
+      const email = resetEmail;
+      if (!email) throw new Error('Introduce tu email');
+      await resetPassword(email);
+      state.notice = 'Si la cuenta existe, recibirás instrucciones.';
+    }
+    if (action === 'run-job') {
+      await api(orgPath(`/jobs/${id}/run`), { method: 'POST', data: {} });
+      await refresh();
+    }
+    if (action === 'retry-job') {
+      await api(orgPath(`/jobs/${id}/retry`), { method: 'POST', data: {} });
+      await refresh();
+    }
+    if (action === 'recover-job') {
+      await api(orgPath(`/jobs/${id}/recover`), { method: 'POST', data: {} });
+      await refresh();
+    }
+    if (action === 'download') {
+      const blob = await api(orgPath(`/assets/${id}/download`), { blob: true }),
+        url = URL.createObjectURL(blob),
+        a = document.createElement('a');
+      a.href = url;
+      a.download = `zenit-${id}.${blob.type.includes('png') ? 'png' : blob.type.includes('svg') ? 'svg' : 'txt'}`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+    if (action === 'portal') {
+      const d = await api(orgPath('/billing/portal'), { method: 'POST', data: {} });
+      navigateStripe(d.url);
+    }
+  });
+});
+function navigateStripe(url) {
+  const u = new URL(url);
+  if (
+    u.protocol !== 'https:' ||
+    !['checkout.stripe.com', 'billing.stripe.com'].includes(u.hostname)
+  )
+    throw new Error('URL de pago rechazada');
+  location.assign(url);
+}
+root.addEventListener('change', (event) => {
+  if (event.target.name === 'organization')
+    task(async () => {
+      state.org = await api(`/api/orgs/${event.target.value}`);
+    });
+});
+root.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const form = event.target,
+    data = Object.fromEntries(new FormData(form)),
+    formId = form.id;
+  task(async () => {
+    if (formId === 'email-login') {
+      await loginEmail(data.email, data.password);
+      return;
+    }
+    if (formId === 'onboarding') state.org = await api('/api/bootstrap', { method: 'POST', data });
+    if (formId === 'brand-form') {
+      for (const k of [
+        'preferredWords',
+        'forbiddenWords',
+        'allowedClaims',
+        'sensitiveClaims',
+        'colors',
+        'logos',
+        'urls',
+      ])
+        data[k] = list(data[k]);
+      await api(orgPath('/brands' + (state.editBrand ? '/' + state.editBrand : '')), {
+        method: state.editBrand ? 'PATCH' : 'POST',
+        data,
+      });
+      state.editBrand = null;
+    }
+    if (formId === 'campaign-form') await api(orgPath('/campaigns'), { method: 'POST', data });
+    if (formId === 'brief-form') await api(orgPath('/briefs'), { method: 'POST', data });
+    if (formId === 'generation-form') {
+      if (data.kind === 'copy' || !data.copyAssetId) delete data.copyAssetId;
+      const job = await api(orgPath('/jobs'), { method: 'POST', data, key: crypto.randomUUID() });
+      await api(orgPath(`/jobs/${job.id}/run`), { method: 'POST', data: {} });
+      state.view = 'jobs';
+    }
+    if (formId === 'asset-form')
+      await api(orgPath('/assets'), { method: 'POST', data: { ...data, mime: 'text/plain' } });
+    if (formId === 'source-form')
+      await api(orgPath('/sources'), { method: 'POST', data: { ...data, type: 'manual' } });
+    if (formId === 'metric-form') {
+      for (const k of ['spend', 'impressions', 'clicks', 'conversions', 'revenue'])
+        data[k] = Number(data[k]);
+      await api(orgPath('/metrics'), { method: 'POST', data });
+    }
+    if (formId === 'trend-form') {
+      data.observedAt = new Date(data.observedAt).toISOString();
+      await api(orgPath('/trends'), { method: 'POST', data });
+    }
+    if (formId === 'member-form') await api(orgPath('/members'), { method: 'POST', data });
+    if (formId === 'checkout-form') {
+      const d = await api(orgPath('/billing/checkout'), { method: 'POST', data });
+      navigateStripe(d.url);
+    }
+    await refresh();
+    state.notice = 'Guardado correctamente';
+  });
+});
+function showLegal(title) {
+  const dialog = document.createElement('dialog');
+  dialog.innerHTML = `<h2>${esc(title)}</h2><strong class="badge">BORRADOR · NO APTO PARA LANZAMIENTO COMERCIAL</strong><p>Documento pendiente de revisión profesional y datos confirmados del titular.</p><p>${esc(legalTexts[title])}</p><p>No se ha activado analítica publicitaria ni cookies de marketing. La autenticación Firebase usa almacenamiento de sesión cuando está configurada. El servidor conserva los datos de workspace y auditoría.</p><button>Cerrar</button>`;
+  dialog.querySelector('button').onclick = () => dialog.close();
+  dialog.addEventListener('close', () => dialog.remove());
+  document.body.append(dialog);
+  dialog.showModal();
+}
+const legalTexts = {
+  'Aviso Legal':
+    'Completar identidad, contacto profesional y datos exigibles. No se reproducen domicilio ni documento de identidad del historial Git.',
+  Privacidad:
+    'Definir responsable, finalidades, bases jurídicas, conservación, derechos y encargados. Firebase, alojamiento y proveedores IA deben figurar según la configuración real.',
+  Cookies:
+    'Inventario: sesión Firebase en almacenamiento web; preferencias y datos de prueba únicamente locales. Revisar recursos externos y almacenamiento antes de activar servicios. No se añade un consentimiento ficticio.',
+  Términos:
+    'Definir alcance, límites, suscripciones, cancelación, reembolsos y responsabilidades. Precios de prueba no son oferta comercial.',
+  'IA y contenido':
+    'Resultados requieren revisión humana. Revisar licencias, datos de entrada, imágenes, voces, retención y derechos de terceros. Guardian no garantiza cumplimiento.',
+  Partners:
+    'Programa inactivo. Referencia histórica del 20%; actividad, atribución, impuestos y devoluciones pendientes de contrato. Sin pagos.',
+};
+const configureAvailable = !!configureAuth();
 render();
-try{state.health=await api('/api/health');render();}catch(e){state.error=e.message;render();}
-if(configureAvailable)observe(async user=>{state.user=user;if(user)await task(refresh);else{state.org=null;render();}});
+try {
+  state.health = await api('/api/health');
+  render();
+} catch (e) {
+  state.error = e.message;
+  render();
+}
+if (configureAvailable)
+  observe(async (user) => {
+    state.user = user;
+    if (user) await task(refresh);
+    else {
+      state.org = null;
+      render();
+    }
+  });

@@ -1,0 +1,17 @@
+{
+  "version": "experimental-1",
+  "internalUSDPerCredit": 0.05,
+  "commercialApproved": false,
+  "operations": {
+    "copy": { "credits": 1 },
+    "image": { "credits": 10 },
+    "video": { "credits": 30 },
+    "voice": { "credits": 5 }
+  },
+  "multipliers": {
+    "quality": { "standard": 1, "high": 2 },
+    "resolution": { "1024": 1, "1536": 1.5, "720p": 1, "1080p": 2 },
+    "model": {}
+  },
+  "packs": {}
+}
