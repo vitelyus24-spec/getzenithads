@@ -1,0 +1,5 @@
+{"version":"2026-09-draft-1","status":"BORRADOR · revisión profesional pendiente","rules":[
+ {"id":"CLAIM-GUARANTEE","layer":"advertising_policy","platforms":["*"],"countries":["*"],"sectors":["*"],"phrases":["resultado garantizado","resultados garantizados","sin ningún riesgo","100% garantizado"],"severity":"alta","recommendation":"Aporta evidencia verificable o elimina la garantía absoluta; requiere revisión humana."},
+ {"id":"HEALTH-CURE","layer":"sector","platforms":["*"],"countries":["*"],"sectors":["salud","suplementos","belleza"],"phrases":["cura definitiva","cura la diabetes","pierde 10 kilos"],"severity":"alta","recommendation":"No publicar sin revisión especializada de la afirmación sanitaria."},
+ {"id":"PERSONAL-ATTRIBUTE","layer":"platform","platforms":["Meta"],"countries":["*"],"sectors":["*"],"phrases":["¿tienes diabetes","¿estás deprimido","sabemos que sufres"],"severity":"media","recommendation":"Revisar la inferencia de atributos personales con las políticas vigentes de Meta."}
+]}

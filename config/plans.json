@@ -1,0 +1,11 @@
+{
+ "version":"pilot-1",
+ "plans":{
+  "pilot":{"label":"Piloto privado · sin suscripción comercial","historicalEUR":null,"limits":{"brands":3,"members":3,"campaigns":10,"briefs":30,"jobs":100,"assets":100,"storageBytes":5000000},"features":{"copy":true,"image":true,"video":false,"voice":false,"brandGuardian":true,"complianceGuardian":true,"analytics":true,"integrations":false},"initialCredits":100},
+  "historical19":{"label":"Referencia 19 € · TEST","historicalEUR":19,"limits":{"brands":1,"members":1,"campaigns":10,"briefs":30,"jobs":100,"assets":100,"storageBytes":5000000},"features":{"copy":true,"image":false,"video":false,"voice":false,"brandGuardian":true,"complianceGuardian":true,"analytics":true,"integrations":false},"initialCredits":100},
+  "historical49":{"label":"Referencia 49 € · TEST","historicalEUR":49,"inherits":"pilot"},
+  "historical149":{"label":"Referencia 149 € · TEST","historicalEUR":149,"inherits":"pilot"},
+  "historical299":{"label":"Referencia 299 € · TEST","historicalEUR":299,"inherits":"pilot"}
+ },
+ "operations":{"copy":{"credits":1},"image":{"credits":10},"video":{"credits":30},"voice":{"credits":5}}
+}
